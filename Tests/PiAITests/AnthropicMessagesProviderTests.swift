@@ -37,6 +37,52 @@ struct AnthropicMessagesProviderTests {
         #expect(message.content == [.text(.init(text: "Hello"))])
     }
 
+    @Test func parsesUsageFromSSEEvents() async throws {
+        let apiKey = "ak-test"
+
+        let http = MockHTTPClient(sseHandler: { _ in
+            AsyncThrowingStream { continuation in
+                // message_start with usage
+                continuation.yield(.init(
+                    event: "message_start",
+                    data: #"{"type":"message_start","message":{"usage":{"input_tokens":100,"cache_creation_input_tokens":20,"cache_read_input_tokens":10,"output_tokens":0}}}"#
+                ))
+                continuation.yield(.init(
+                    event: "content_block_delta",
+                    data: #"{"delta":{"type":"text_delta","text":"Hi"}}"#
+                ))
+                // message_delta with output usage
+                continuation.yield(.init(
+                    event: "message_delta",
+                    data: #"{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":42}}"#
+                ))
+                continuation.yield(.init(
+                    event: "message_stop",
+                    data: #"{}"#
+                ))
+                continuation.finish()
+            }
+        })
+
+        let provider = AnthropicMessagesProvider(http: http)
+        let model = Model(id: "claude-sonnet-4-5", provider: .anthropic)
+        let context = Context(systemPrompt: "Test", messages: [.user("Hi")])
+
+        let stream = try await provider.stream(model: model, context: context, options: .init(apiKey: apiKey))
+        var done: AssistantMessage?
+        for try await event in stream {
+            if case let .done(message) = event {
+                done = message
+            }
+        }
+
+        let message = try #require(done)
+        let usage = try #require(message.usage)
+        #expect(usage.inputTokens == 130) // 100 + 20 + 10
+        #expect(usage.outputTokens == 42)
+        #expect(usage.totalTokens == 172) // 130 + 42
+    }
+
     @Test func automaticPromptCachingAddsTopLevelCacheControl() async throws {
         let apiKey = "ak-test"
 
