@@ -31,7 +31,7 @@ jobs:
         run: |
           xcrun docc convert \
             --additional-symbol-graph-dir .build/target-symbols \
-            --output-path .build/docs \
+            --output-dir .build/docs \
             --hosting-base-path docs/wuhu-ai \
             --fallback-display-name PiAI \
             --fallback-bundle-identifier ai.wuhu.PiAI \
