@@ -311,6 +311,8 @@ public struct AnthropicMessagesProvider: Sendable {
                 var currentTextIndex: Int?
                 var currentToolCallIndex: Int?
                 var currentToolCallArgumentsBuffer = ""
+                var inputTokens = 0
+                var outputTokens = 0
 
                 do {
                     for try await message in sse {
@@ -318,6 +320,15 @@ public struct AnthropicMessagesProvider: Sendable {
                         guard let dict = try parseJSON(message.data) else { continue }
 
                         switch event {
+                        case "message_start":
+                            if let msg = dict["message"] as? [String: Any],
+                               let usage = msg["usage"] as? [String: Any]
+                            {
+                                inputTokens = (usage["input_tokens"] as? Int ?? 0)
+                                    + (usage["cache_creation_input_tokens"] as? Int ?? 0)
+                                    + (usage["cache_read_input_tokens"] as? Int ?? 0)
+                            }
+
                         case "content_block_start":
                             if let block = dict["content_block"] as? [String: Any],
                                let type = block["type"] as? String
@@ -380,6 +391,9 @@ public struct AnthropicMessagesProvider: Sendable {
                             {
                                 output.stopReason = mapAnthropicStopReason(stopReason)
                             }
+                            if let usage = dict["usage"] as? [String: Any] {
+                                outputTokens = usage["output_tokens"] as? Int ?? outputTokens
+                            }
 
                         case "message_stop":
                             if output.stopReason == .stop,
@@ -397,6 +411,13 @@ public struct AnthropicMessagesProvider: Sendable {
                        output.content.contains(where: { if case .toolCall = $0 { true } else { false } })
                     {
                         output.stopReason = .toolUse
+                    }
+                    if inputTokens > 0 || outputTokens > 0 {
+                        output.usage = Usage(
+                            inputTokens: inputTokens,
+                            outputTokens: outputTokens,
+                            totalTokens: inputTokens + outputTokens
+                        )
                     }
                     continuation.yield(.done(message: output))
                     continuation.finish()
