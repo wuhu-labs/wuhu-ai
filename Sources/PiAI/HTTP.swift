@@ -68,7 +68,9 @@ public final class AsyncHTTPClientTransport: HTTPClient, @unchecked Sendable {
             self.client = client
             ownsClient = false
         } else {
-            self.client = AsyncHTTPClient.HTTPClient(eventLoopGroupProvider: .singleton)
+            var config = AsyncHTTPClient.HTTPClient.Configuration()
+            config.decompression = .enabled(limit: .none)
+            self.client = AsyncHTTPClient.HTTPClient(eventLoopGroupProvider: .singleton, configuration: config)
             ownsClient = true
         }
         self.requestTimeoutSeconds = requestTimeoutSeconds
