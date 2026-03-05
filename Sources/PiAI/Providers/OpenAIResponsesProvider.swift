@@ -23,7 +23,7 @@ public struct OpenAIResponsesProvider: Sendable {
             request.setHeader(v, for: k)
         }
 
-        let body = try JSONSerialization.data(withJSONObject: buildBody(model: model, context: context, options: options))
+        let body = try JSONSerialization.data(withJSONObject: buildBody(model: model, context: context, options: options), options: .sortedKeys)
         request.body = body
 
         let sse = try await http.sse(for: request)
