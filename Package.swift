@@ -67,5 +67,12 @@ let package = Package(
             ],
             swiftSettings: strictConcurrency
         ),
+        .executableTarget(
+            name: "EffectLoopsDemo",
+            dependencies: [
+                "EffectLoops",
+            ],
+            swiftSettings: strictConcurrency
+        ),
     ]
 )
