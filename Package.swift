@@ -18,6 +18,7 @@ let package = Package(
     ],
     products: [
         .library(name: "PiAI", targets: ["PiAI"]),
+        .library(name: "EffectLoops", targets: ["EffectLoops"]),
     ],
     dependencies: [
         .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.27.0"),
@@ -34,6 +35,42 @@ let package = Package(
             name: "PiAITests",
             dependencies: [
                 "PiAI",
+            ],
+            swiftSettings: strictConcurrency
+        ),
+        .target(
+            name: "EffectLoops",
+            swiftSettings: strictConcurrency
+        ),
+        .testTarget(
+            name: "EffectLoopsTests",
+            dependencies: [
+                "EffectLoops",
+            ],
+            swiftSettings: strictConcurrency
+        ),
+        .target(
+            name: "EffectLoopsExamples",
+            dependencies: [
+                "EffectLoops",
+                "PiAI",
+            ],
+            swiftSettings: strictConcurrency
+        ),
+        .target(name: "CFlush"),
+        .executableTarget(
+            name: "ChatCLI",
+            dependencies: [
+                "EffectLoops",
+                "PiAI",
+                "CFlush",
+            ],
+            swiftSettings: strictConcurrency
+        ),
+        .executableTarget(
+            name: "EffectLoopsDemo",
+            dependencies: [
+                "EffectLoops",
             ],
             swiftSettings: strictConcurrency
         ),
