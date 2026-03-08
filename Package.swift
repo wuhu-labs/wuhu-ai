@@ -18,6 +18,7 @@ let package = Package(
     ],
     products: [
         .library(name: "PiAI", targets: ["PiAI"]),
+        .library(name: "AgentCore", targets: ["AgentCore"]),
     ],
     dependencies: [
         .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.27.0"),
@@ -33,6 +34,21 @@ let package = Package(
         .testTarget(
             name: "PiAITests",
             dependencies: [
+                "PiAI",
+            ],
+            swiftSettings: strictConcurrency
+        ),
+        .target(
+            name: "AgentCore",
+            dependencies: [
+                "PiAI",
+            ],
+            swiftSettings: strictConcurrency
+        ),
+        .testTarget(
+            name: "AgentCoreTests",
+            dependencies: [
+                "AgentCore",
                 "PiAI",
             ],
             swiftSettings: strictConcurrency
