@@ -8,6 +8,14 @@ import SwiftUI
 
 @main
 struct EffectLoopsDemoApp: App {
+  init() {
+    // When launched from terminal via `swift run`, the process starts
+    // as a background app. Promote it to a regular GUI app so it gets
+    // keyboard focus and appears in the Dock.
+    NSApplication.shared.setActivationPolicy(.regular)
+    NSApplication.shared.activate(ignoringOtherApps: true)
+  }
+
   var body: some Scene {
     WindowGroup {
       DemoRootView()
