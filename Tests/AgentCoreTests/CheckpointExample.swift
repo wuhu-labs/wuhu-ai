@@ -75,7 +75,7 @@ final class CheckpointBehavior: AgentBehavior, Sendable {
 
   static var emptyState: CheckpointState { .init() }
 
-  func loadState() async throws -> CheckpointState { store.value }
+  func loadState() async throws -> CheckpointState { await store.value }
 
   func apply(_ action: CheckpointAction, to state: inout CheckpointState) {
     switch action {
@@ -89,7 +89,7 @@ final class CheckpointBehavior: AgentBehavior, Sendable {
   func handle(_ action: CheckpointExternalAction, state: CheckpointState) async throws -> [CheckpointAction] {
     switch action {
     case let .enqueue(text):
-      let msgs = store.withLock { s -> [Message] in
+      let msgs = await store.withLock { s -> [Message] in
         s.messages.append(.user(text))
         s.hasWork = true
         return s.messages
@@ -102,7 +102,7 @@ final class CheckpointBehavior: AgentBehavior, Sendable {
 
   func drainTurnItems(state: CheckpointState) async throws -> [CheckpointAction] {
     guard state.hasWork else { return [] }
-    store.withLock { $0.hasWork = false }
+    await store.withLock { $0.hasWork = false }
     return [.workFlagUpdated(false)]
   }
 
@@ -111,14 +111,14 @@ final class CheckpointBehavior: AgentBehavior, Sendable {
   }
 
   func infer(context: Context, stream: AgentStreamSink<String>) async throws -> AssistantMessage {
-    let idx = callIndex.withLock { i -> Int in let v = i; i += 1; return v }
-    let all = responses.value
+    let idx = await callIndex.withLock { i -> Int in let v = i; i += 1; return v }
+    let all = await responses.value
     guard idx < all.count else { throw AgentLoopError.inferenceProducedNoResult }
     return all[idx]
   }
 
   func persistAssistantEntry(_ message: AssistantMessage, state: CheckpointState) async throws -> [CheckpointAction] {
-    let msgs = store.withLock { s -> [Message] in
+    let msgs = await store.withLock { s -> [Message] in
       s.messages.append(.assistant(message))
       return s.messages
     }
@@ -126,7 +126,7 @@ final class CheckpointBehavior: AgentBehavior, Sendable {
   }
 
   func toolWillExecute(_ call: ToolCall, state: CheckpointState) async throws -> [CheckpointAction] {
-    store.withLock { $0.toolStatus[call.id] = .started }
+    await store.withLock { $0.toolStatus[call.id] = .started }
     return [.toolStatusUpdated(id: call.id, status: .started)]
   }
 
@@ -144,7 +144,7 @@ final class CheckpointBehavior: AgentBehavior, Sendable {
         }
         output += chunk
         let snapshot = output
-        store.withLock { $0.toolCheckpoints[call.id] = snapshot }
+        await store.withLock { $0.toolCheckpoints[call.id] = snapshot }
         await sink.emit(.toolCheckpointed(id: call.id, output: snapshot))
       }
       return CheckpointToolResult(output: output)
@@ -152,12 +152,12 @@ final class CheckpointBehavior: AgentBehavior, Sendable {
     case .fromPreviousLifetime:
       switch recoveryMode {
       case .errorWithCheckpoint:
-        let lastCheckpoint = store.withLock { $0.toolCheckpoints[call.id] ?? "(no output)" }
+        let lastCheckpoint = await store.withLock { $0.toolCheckpoints[call.id] ?? "(no output)" }
         throw CheckpointRecoveryError(partialOutput: lastCheckpoint)
       case .resume:
-        let existing = store.withLock { $0.toolCheckpoints[call.id] ?? "" }
+        let existing = await store.withLock { $0.toolCheckpoints[call.id] ?? "" }
         let output = existing + "resumed-output\n"
-        store.withLock { $0.toolCheckpoints[call.id] = output }
+        await store.withLock { $0.toolCheckpoints[call.id] = output }
         await sink.emit(.toolCheckpointed(id: call.id, output: output))
         return CheckpointToolResult(output: output)
       }
@@ -169,7 +169,7 @@ final class CheckpointBehavior: AgentBehavior, Sendable {
   }
 
   func toolDidExecute(_ call: ToolCall, result: CheckpointToolResult, state: CheckpointState) async throws -> [CheckpointAction] {
-    let msgs = store.withLock { s -> [Message] in
+    let msgs = await store.withLock { s -> [Message] in
       s.toolStatus[call.id] = .completed
       s.messages.append(.toolResult(.init(
         toolCallId: call.id, toolName: call.name,
@@ -186,7 +186,7 @@ final class CheckpointBehavior: AgentBehavior, Sendable {
     } else {
       "error: \(error)"
     }
-    let msgs = store.withLock { s -> [Message] in
+    let msgs = await store.withLock { s -> [Message] in
       s.toolStatus[call.id] = .errored
       s.messages.append(.toolResult(.init(
         toolCallId: call.id, toolName: call.name,

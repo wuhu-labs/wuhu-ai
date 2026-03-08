@@ -86,7 +86,7 @@ final class InterruptBehavior: AgentBehavior, Sendable {
 
   static var emptyState: InterruptState { .init() }
 
-  func loadState() async throws -> InterruptState { store.value }
+  func loadState() async throws -> InterruptState { await store.value }
 
   func apply(_ action: InterruptAction, to state: inout InterruptState) {
     switch action {
@@ -100,7 +100,7 @@ final class InterruptBehavior: AgentBehavior, Sendable {
   func handle(_ action: InterruptExternalAction, state: InterruptState) async throws -> [InterruptAction] {
     switch action {
     case let .enqueue(text):
-      let msgs = store.withLock { s -> [Message] in
+      let msgs = await store.withLock { s -> [Message] in
         s.messages.append(.user(text))
         s.hasWork = true
         return s.messages
@@ -108,7 +108,7 @@ final class InterruptBehavior: AgentBehavior, Sendable {
       return [.messagesUpdated(msgs), .workFlagUpdated(true)]
 
     case let .steer(text):
-      store.withLock { $0.pendingSteer = text }
+      await store.withLock { $0.pendingSteer = text }
       // Fire the interrupt signal so blocking tools wake up.
       await interruptSignal.fire()
       return [.steerEnqueued(text)]
@@ -117,7 +117,7 @@ final class InterruptBehavior: AgentBehavior, Sendable {
 
   func drainInterruptItems(state: InterruptState) async throws -> [InterruptAction] {
     guard let steer = state.pendingSteer else { return [] }
-    let msgs = store.withLock { s -> [Message] in
+    let msgs = await store.withLock { s -> [Message] in
       s.messages.append(.user(steer))
       s.pendingSteer = nil
       return s.messages
@@ -127,7 +127,7 @@ final class InterruptBehavior: AgentBehavior, Sendable {
 
   func drainTurnItems(state: InterruptState) async throws -> [InterruptAction] {
     guard state.hasWork else { return [] }
-    store.withLock { $0.hasWork = false }
+    await store.withLock { $0.hasWork = false }
     return [.workFlagUpdated(false)]
   }
 
@@ -136,14 +136,14 @@ final class InterruptBehavior: AgentBehavior, Sendable {
   }
 
   func infer(context: Context, stream: AgentStreamSink<String>) async throws -> AssistantMessage {
-    let idx = callIndex.withLock { i -> Int in let v = i; i += 1; return v }
-    let all = responses.value
+    let idx = await callIndex.withLock { i -> Int in let v = i; i += 1; return v }
+    let all = await responses.value
     guard idx < all.count else { throw AgentLoopError.inferenceProducedNoResult }
     return all[idx]
   }
 
   func persistAssistantEntry(_ message: AssistantMessage, state: InterruptState) async throws -> [InterruptAction] {
-    let msgs = store.withLock { s -> [Message] in
+    let msgs = await store.withLock { s -> [Message] in
       s.messages.append(.assistant(message))
       return s.messages
     }
@@ -196,7 +196,7 @@ final class InterruptBehavior: AgentBehavior, Sendable {
   }
 
   func toolDidExecute(_ call: ToolCall, result: InterruptToolResult, state: InterruptState) async throws -> [InterruptAction] {
-    let msgs = store.withLock { s -> [Message] in
+    let msgs = await store.withLock { s -> [Message] in
       s.messages.append(.toolResult(.init(
         toolCallId: call.id, toolName: call.name,
         content: [.text(result.text)]
@@ -207,7 +207,7 @@ final class InterruptBehavior: AgentBehavior, Sendable {
   }
 
   func toolDidFail(_ call: ToolCall, error: any Error, state: InterruptState) async throws -> [InterruptAction] {
-    let msgs = store.withLock { s -> [Message] in
+    let msgs = await store.withLock { s -> [Message] in
       s.messages.append(.toolResult(.init(
         toolCallId: call.id, toolName: call.name,
         content: [.text("error: \(error)")], isError: true

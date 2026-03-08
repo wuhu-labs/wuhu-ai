@@ -56,7 +56,7 @@ final class MinimalBehavior: AgentBehavior, Sendable {
 
   static var emptyState: MinimalState { .init() }
 
-  func loadState() async throws -> MinimalState { store.value }
+  func loadState() async throws -> MinimalState { await store.value }
 
   func apply(_ action: MinimalAction, to state: inout MinimalState) {
     switch action {
@@ -68,7 +68,7 @@ final class MinimalBehavior: AgentBehavior, Sendable {
   func handle(_ action: MinimalExternalAction, state: MinimalState) async throws -> [MinimalAction] {
     switch action {
     case let .enqueue(text):
-      let msgs = store.withLock { s -> [Message] in
+      let msgs = await store.withLock { s -> [Message] in
         s.messages.append(.user(text))
         s.hasWork = true
         return s.messages
@@ -81,7 +81,7 @@ final class MinimalBehavior: AgentBehavior, Sendable {
 
   func drainTurnItems(state: MinimalState) async throws -> [MinimalAction] {
     guard state.hasWork else { return [] }
-    store.withLock { $0.hasWork = false }
+    await store.withLock { $0.hasWork = false }
     return [.workFlagUpdated(false)]
   }
 
@@ -90,8 +90,8 @@ final class MinimalBehavior: AgentBehavior, Sendable {
   }
 
   func infer(context: Context, stream: AgentStreamSink<MinimalStreamAction>) async throws -> AssistantMessage {
-    let idx = callIndex.withLock { i -> Int in let v = i; i += 1; return v }
-    let all = responses.value
+    let idx = await callIndex.withLock { i -> Int in let v = i; i += 1; return v }
+    let all = await responses.value
     guard idx < all.count else {
       throw AgentLoopError.inferenceProducedNoResult
     }
@@ -105,7 +105,7 @@ final class MinimalBehavior: AgentBehavior, Sendable {
   }
 
   func persistAssistantEntry(_ message: AssistantMessage, state: MinimalState) async throws -> [MinimalAction] {
-    let msgs = store.withLock { s -> [Message] in
+    let msgs = await store.withLock { s -> [Message] in
       s.messages.append(.assistant(message))
       return s.messages
     }
@@ -127,7 +127,7 @@ final class MinimalBehavior: AgentBehavior, Sendable {
   }
 
   func toolDidExecute(_ call: ToolCall, result: MinimalToolResult, state: MinimalState) async throws -> [MinimalAction] {
-    let msgs = store.withLock { s -> [Message] in
+    let msgs = await store.withLock { s -> [Message] in
       s.messages.append(.toolResult(.init(
         toolCallId: call.id,
         toolName: call.name,
@@ -139,7 +139,7 @@ final class MinimalBehavior: AgentBehavior, Sendable {
   }
 
   func toolDidFail(_ call: ToolCall, error: any Error, state: MinimalState) async throws -> [MinimalAction] {
-    let msgs = store.withLock { s -> [Message] in
+    let msgs = await store.withLock { s -> [Message] in
       s.messages.append(.toolResult(.init(
         toolCallId: call.id,
         toolName: call.name,
