@@ -9,8 +9,8 @@ struct OpenAIResponsesProviderTests {
     let http = MockHTTPClient(sseHandler: { request in
       #expect(request.url.absoluteString == "https://api.openai.com/v1/responses")
       let headers = request.headers
-      #expect(headers["Authorization"] == "Bearer \(apiKey)")
-      #expect(headers["Accept"] == "text/event-stream")
+      #expect(headers["Authorization"] == ["Bearer \(apiKey)"])
+      #expect(headers["Accept"] == ["text/event-stream"])
 
       return AsyncThrowingStream { continuation in
         continuation.yield(.init(data: #"{"type":"response.output_text.delta","delta":"Hello"}"#))

@@ -155,8 +155,8 @@ struct AnthropicMessagesProviderTests {
 
 private func normalizedHeaders(_ request: HTTPRequest) -> [String: String] {
   Dictionary(
-    uniqueKeysWithValues: request.headers.map { key, value in
-      (key.lowercased(), value)
+    uniqueKeysWithValues: request.headers.map { key, values in
+      (key.lowercased(), values.joined(separator: ", "))
     },
   )
 }

@@ -1,5 +1,6 @@
 import Foundation
 import PiAI
+import PiAIAsyncHTTPClient
 import Testing
 
 struct LiveProvidersE2ETests {
@@ -7,7 +8,7 @@ struct LiveProvidersE2ETests {
   func openAI_smoke() async throws {
     let apiKey = try #require(ProcessInfo.processInfo.environment["OPENAI_API_KEY"])
 
-    let provider = OpenAIResponsesProvider()
+    let provider = OpenAIResponsesProvider(http: AsyncHTTPClientTransport())
     let model = Model(id: "gpt-4.1-mini", provider: .openai)
     let context = Context(systemPrompt: "Follow instructions exactly.", messages: [
       .user("Output exactly: HELLO"),
@@ -35,7 +36,7 @@ struct LiveProvidersE2ETests {
   func anthropic_smoke() async throws {
     let apiKey = try #require(ProcessInfo.processInfo.environment["ANTHROPIC_API_KEY"])
 
-    let provider = AnthropicMessagesProvider()
+    let provider = AnthropicMessagesProvider(http: AsyncHTTPClientTransport())
     let model = Model(id: "claude-sonnet-4-5", provider: .anthropic)
     let context = Context(systemPrompt: "Follow instructions exactly.", messages: [
       .user("Output exactly: HELLO"),

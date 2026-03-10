@@ -3,7 +3,7 @@ import Foundation
 public struct OpenAICodexResponsesProvider: Sendable {
   private let http: any HTTPClient
 
-  public init(http: any HTTPClient = AsyncHTTPClientTransport()) {
+  public init(http: any HTTPClient) {
     self.http = http
   }
 
@@ -36,8 +36,8 @@ public struct OpenAICodexResponsesProvider: Sendable {
     let body = try JSONSerialization.data(withJSONObject: buildBody(model: model, context: context, options: options), options: .sortedKeys)
     request.body = body
 
-    let sse = try await http.sse(for: request)
-    return mapResponsesSSE(sse, provider: model.provider, modelId: model.id)
+    let sseResponse = try await http.sse(for: request)
+    return mapResponsesSSE(sseResponse.events, provider: model.provider, modelId: model.id)
   }
 
   private func buildBody(model: Model, context: Context, options: RequestOptions) -> [String: Any] {

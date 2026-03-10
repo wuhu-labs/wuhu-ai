@@ -12,10 +12,14 @@ struct MockHTTPClient: HTTPClient {
     return try await dataHandler(request)
   }
 
-  func sse(for request: HTTPRequest) async throws -> AsyncThrowingStream<SSEMessage, any Error> {
+  func sse(for request: HTTPRequest) async throws -> SSEResponse {
     guard let sseHandler else {
       throw PiAIError.unsupported("MockHTTPClient.sseHandler not set")
     }
-    return try await sseHandler(request)
+    let events = try await sseHandler(request)
+    return SSEResponse(
+      response: HTTPResponse(statusCode: 200),
+      events: events,
+    )
   }
 }

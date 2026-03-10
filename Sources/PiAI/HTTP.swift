@@ -1,27 +1,18 @@
-import AsyncHTTPClient
 import Foundation
 
-public struct SSEMessage: Sendable, Hashable {
-  public var event: String?
-  public var data: String
-
-  public init(event: String? = nil, data: String) {
-    self.event = event
-    self.data = data
-  }
-}
+// MARK: - Request / Response
 
 public struct HTTPRequest: Sendable {
   public var url: URL
   public var method: String
-  public var headers: [String: String]
+  public var headers: [String: [String]]
   public var body: Data?
 
   public init(
     url: URL,
     method: String = "GET",
-    headers: [String: String] = [:],
-    body: Data? = nil,
+    headers: [String: [String]] = [:],
+    body: Data? = nil
   ) {
     self.url = url
     self.method = method
@@ -30,7 +21,11 @@ public struct HTTPRequest: Sendable {
   }
 
   public mutating func setHeader(_ value: String, for name: String) {
-    headers[name] = value
+    headers[name] = [value]
+  }
+
+  public mutating func addHeader(_ value: String, for name: String) {
+    headers[name, default: []].append(value)
   }
 }
 
@@ -44,131 +39,36 @@ public struct HTTPResponse: Sendable {
   }
 }
 
+// MARK: - SSE
+
+public struct SSEMessage: Sendable, Hashable {
+  public var event: String?
+  public var data: String
+
+  public init(event: String? = nil, data: String) {
+    self.event = event
+    self.data = data
+  }
+}
+
+public struct SSEResponse: Sendable {
+  public var response: HTTPResponse
+  public var events: AsyncThrowingStream<SSEMessage, any Error>
+
+  public init(response: HTTPResponse, events: AsyncThrowingStream<SSEMessage, any Error>) {
+    self.response = response
+    self.events = events
+  }
+}
+
+// MARK: - Client Protocol
+
 public protocol HTTPClient: Sendable {
   func data(for request: HTTPRequest) async throws -> (Data, HTTPResponse)
-  func sse(for request: HTTPRequest) async throws -> AsyncThrowingStream<SSEMessage, any Error>
+  func sse(for request: HTTPRequest) async throws -> SSEResponse
 }
 
-public final class AsyncHTTPClientTransport: HTTPClient, @unchecked Sendable {
-  private let client: AsyncHTTPClient.HTTPClient
-  private let requestTimeoutSeconds: Int64
-  private let sseTimeoutSeconds: Int64
-  private let ownsClient: Bool
-
-  public convenience init(client: AsyncHTTPClient.HTTPClient? = nil, requestTimeoutSeconds: Int64 = 300) {
-    self.init(client: client, requestTimeoutSeconds: requestTimeoutSeconds, sseTimeoutSeconds: 86400)
-  }
-
-  public init(
-    client: AsyncHTTPClient.HTTPClient? = nil,
-    requestTimeoutSeconds: Int64 = 300,
-    sseTimeoutSeconds: Int64,
-  ) {
-    if let client {
-      self.client = client
-      ownsClient = false
-    } else {
-      var config = AsyncHTTPClient.HTTPClient.Configuration()
-      config.decompression = .enabled(limit: .none)
-      self.client = AsyncHTTPClient.HTTPClient(eventLoopGroupProvider: .singleton, configuration: config)
-      ownsClient = true
-    }
-    self.requestTimeoutSeconds = requestTimeoutSeconds
-    self.sseTimeoutSeconds = sseTimeoutSeconds
-  }
-
-  deinit {
-    guard ownsClient else { return }
-    try? client.syncShutdown()
-  }
-
-  public func data(for request: HTTPRequest) async throws -> (Data, HTTPResponse) {
-    let response = try await execute(request, timeoutSeconds: requestTimeoutSeconds)
-    let body = try await readBody(response.body, limitBytes: .max)
-    return (body, makeResponseMetadata(response))
-  }
-
-  public func sse(for request: HTTPRequest) async throws -> AsyncThrowingStream<SSEMessage, any Error> {
-    let response = try await execute(request, timeoutSeconds: sseTimeoutSeconds)
-    let metadata = makeResponseMetadata(response)
-
-    if metadata.statusCode < 200 || metadata.statusCode >= 300 {
-      let body = try await readBody(response.body, limitBytes: 64 * 1024)
-      throw PiAIError.httpStatus(code: metadata.statusCode, body: String(decoding: body, as: UTF8.self))
-    }
-
-    // Keep `self` alive for the lifetime of the stream. Callers often create a temporary transport/client
-    // (e.g. `WuhuClient(baseURL:).followSessionStream(...)`) and only retain the returned stream. If the
-    // transport is deinitialized, it will shut down the underlying AsyncHTTPClient and cancel the in-flight
-    // SSE body stream, which surfaces as `HTTPClientError.cancelled`.
-    let body = response.body
-    return AsyncThrowingStream { continuation in
-      let task = Task { [self] in
-        _ = self
-        do {
-          for try await message in SSEDecoder.decode(body) {
-            continuation.yield(message)
-          }
-          continuation.finish()
-        } catch {
-          continuation.finish(throwing: error)
-        }
-      }
-
-      continuation.onTermination = { _ in
-        task.cancel()
-      }
-    }
-  }
-
-  private func execute(_ request: HTTPRequest, timeoutSeconds: Int64) async throws -> AsyncHTTPClient.HTTPClientResponse {
-    var outgoing = AsyncHTTPClient.HTTPClientRequest(url: request.url.absoluteString)
-    outgoing.method = .RAW(value: request.method.uppercased())
-
-    for (name, value) in request.headers {
-      outgoing.headers.add(name: name, value: value)
-    }
-
-    if let body = request.body {
-      outgoing.body = .bytes(body)
-    }
-
-    return try await client.execute(outgoing, timeout: .seconds(timeoutSeconds))
-  }
-
-  private func makeResponseMetadata(_ response: AsyncHTTPClient.HTTPClientResponse) -> HTTPResponse {
-    var headers: [String: [String]] = [:]
-    for header in response.headers {
-      headers[header.name, default: []].append(header.value)
-    }
-    return HTTPResponse(statusCode: Int(response.status.code), headers: headers)
-  }
-
-  private func readBody(_ body: AsyncHTTPClient.HTTPClientResponse.Body, limitBytes: Int) async throws -> Data {
-    var data = Data()
-    data.reserveCapacity(min(4 * 1024, limitBytes))
-    var count = 0
-
-    for try await var chunk in body {
-      let readable = chunk.readableBytes
-      if readable == 0 { continue }
-
-      let remaining = limitBytes - count
-      if remaining <= 0 { break }
-
-      let toRead = min(readable, remaining)
-      guard let bytes = chunk.readBytes(length: toRead) else { continue }
-      data.append(contentsOf: bytes)
-      count += bytes.count
-
-      if toRead < readable {
-        break
-      }
-    }
-
-    return data
-  }
-}
+// MARK: - SSE Decoder
 
 public enum SSEDecoder {
   public static func decode(_ data: Data) -> AsyncThrowingStream<SSEMessage, any Error> {
@@ -176,8 +76,6 @@ public enum SSEDecoder {
       let task = Task {
         var buffer = data
         drain(buffer: &buffer, continuation: continuation)
-        // If the data doesn't end with an SSE frame delimiter, treat any remaining bytes as a partial
-        // frame and drop them.
         continuation.finish()
       }
 
@@ -187,40 +85,9 @@ public enum SSEDecoder {
     }
   }
 
-  static func decode(_ body: AsyncHTTPClient.HTTPClientResponse.Body) -> AsyncThrowingStream<SSEMessage, any Error> {
-    AsyncThrowingStream { continuation in
-      let task = Task {
-        do {
-          var buffer = Data()
-          buffer.reserveCapacity(8 * 1024)
-
-          for try await var chunk in body {
-            guard let bytes = chunk.readBytes(length: chunk.readableBytes), !bytes.isEmpty else { continue }
-            buffer.append(contentsOf: bytes)
-            drain(buffer: &buffer, continuation: continuation)
-          }
-
-          // If we reach EOF without an SSE frame delimiter, treat the remaining bytes as a partial frame
-          // and drop them. This commonly happens when a client cancels a request mid-frame.
-          continuation.finish()
-        } catch {
-          if Task.isCancelled {
-            continuation.finish()
-          } else {
-            continuation.finish(throwing: error)
-          }
-        }
-      }
-
-      continuation.onTermination = { _ in
-        task.cancel()
-      }
-    }
-  }
-
-  private static func drain(
+  public static func drain(
     buffer: inout Data,
-    continuation: AsyncThrowingStream<SSEMessage, any Error>.Continuation,
+    continuation: AsyncThrowingStream<SSEMessage, any Error>.Continuation
   ) {
     while true {
       if let range = buffer.range(of: Data([13, 10, 13, 10])) { // \r\n\r\n
@@ -239,7 +106,7 @@ public enum SSEDecoder {
     }
   }
 
-  private static func parseChunk(_ chunk: String) -> SSEMessage? {
+  public static func parseChunk(_ chunk: String) -> SSEMessage? {
     var event: String?
     var dataLines: [String] = []
 
@@ -258,7 +125,10 @@ public enum SSEDecoder {
     return SSEMessage(event: event, data: data)
   }
 
-  private static func yieldChunk(_ chunkData: Data, continuation: AsyncThrowingStream<SSEMessage, any Error>.Continuation) {
+  private static func yieldChunk(
+    _ chunkData: Data,
+    continuation: AsyncThrowingStream<SSEMessage, any Error>.Continuation
+  ) {
     if chunkData.isEmpty { return }
     var chunk = String(decoding: chunkData, as: UTF8.self)
     chunk = chunk.replacingOccurrences(of: "\r\n", with: "\n")

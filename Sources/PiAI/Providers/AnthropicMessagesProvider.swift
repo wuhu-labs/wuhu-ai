@@ -4,7 +4,7 @@ public struct AnthropicMessagesProvider: Sendable {
   private let http: any HTTPClient
   private let promptCachingBetaFeature = "prompt-caching-2024-07-31"
 
-  public init(http: any HTTPClient = AsyncHTTPClientTransport()) {
+  public init(http: any HTTPClient) {
     self.http = http
   }
 
@@ -36,8 +36,8 @@ public struct AnthropicMessagesProvider: Sendable {
     let body = try JSONSerialization.data(withJSONObject: buildBody(model: model, context: context, options: options), options: .sortedKeys)
     request.body = body
 
-    let sse = try await http.sse(for: request)
-    return mapAnthropicSSE(sse, provider: model.provider, modelId: model.id)
+    let sseResponse = try await http.sse(for: request)
+    return mapAnthropicSSE(sseResponse.events, provider: model.provider, modelId: model.id)
   }
 
   private func buildBody(model: Model, context: Context, options: RequestOptions) -> [String: Any] {
@@ -269,15 +269,15 @@ public struct AnthropicMessagesProvider: Sendable {
     }
   }
 
-  private func getHeaderValue(_ headers: [String: String], name: String) -> String? {
-    headers.first(where: { $0.key.caseInsensitiveCompare(name) == .orderedSame })?.value
+  private func getHeaderValue(_ headers: [String: [String]], name: String) -> String? {
+    headers.first(where: { $0.key.caseInsensitiveCompare(name) == .orderedSame })?.value.first
   }
 
-  private func normalizeHeaderKey(_ headers: inout [String: String], name: String) {
+  private func normalizeHeaderKey(_ headers: inout [String: [String]], name: String) {
     for key in headers.keys where key.caseInsensitiveCompare(name) == .orderedSame && key != name {
-      let value = headers.removeValue(forKey: key)
-      if let value {
-        headers[name] = value
+      let values = headers.removeValue(forKey: key)
+      if let values {
+        headers[name] = values
       }
       break
     }
