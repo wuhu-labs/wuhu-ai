@@ -116,8 +116,16 @@ public struct AnthropicMessagesProvider: Sendable {
               "name": call.name,
               "input": call.arguments.toAny(),
             ])
-          case .reasoning:
-            continue
+          case let .reasoning(r):
+            // Anthropic thinking blocks: signature is stored in encryptedContent,
+            // thinking text is stored as the first summary element.
+            guard let signature = r.encryptedContent, !signature.isEmpty else { continue }
+            let thinkingText = r.summary.first?.stringValue ?? ""
+            blocks.append([
+              "type": "thinking",
+              "thinking": thinkingText,
+              "signature": signature,
+            ])
           case .image:
             continue
           }
@@ -311,6 +319,8 @@ public struct AnthropicMessagesProvider: Sendable {
         var currentTextIndex: Int?
         var currentToolCallIndex: Int?
         var currentToolCallArgumentsBuffer = ""
+        var currentThinkingIndex: Int?
+        var currentThinkingBuffer = ""
         var inputTokens = 0
         var outputTokens = 0
 
@@ -347,6 +357,22 @@ public struct AnthropicMessagesProvider: Sendable {
                   currentToolCallIndex = output.content.count - 1
                   currentTextIndex = nil
                   currentToolCallArgumentsBuffer = ""
+                } else if type == "thinking" {
+                  // Anthropic thinking block: store signature in encryptedContent,
+                  // thinking text in summary. Thinking text may arrive via deltas.
+                  let signature = block["signature"] as? String
+                  let thinking = block["thinking"] as? String ?? ""
+                  let summary: [JSONValue] = thinking.isEmpty ? [] : [.string(thinking)]
+                  output.content.append(.reasoning(.init(
+                    id: UUID().uuidString,
+                    encryptedContent: signature,
+                    summary: summary
+                  )))
+                  currentThinkingIndex = output.content.count - 1
+                  currentThinkingBuffer = thinking
+                  currentTextIndex = nil
+                  currentToolCallIndex = nil
+                  currentToolCallArgumentsBuffer = ""
                 }
               }
 
@@ -368,6 +394,8 @@ public struct AnthropicMessagesProvider: Sendable {
                   continuation.yield(.textDelta(delta: text, partial: output))
                 } else if deltaType == "input_json_delta", let partial = delta["partial_json"] as? String {
                   currentToolCallArgumentsBuffer += partial
+                } else if deltaType == "thinking_delta", let thinking = delta["thinking"] as? String {
+                  currentThinkingBuffer += thinking
                 }
               }
 
@@ -381,9 +409,27 @@ public struct AnthropicMessagesProvider: Sendable {
                 let args = parseJSONValueLenient(currentToolCallArgumentsBuffer) ?? existing.arguments
                 output.content[idx] = .toolCall(.init(id: existing.id, name: existing.name, arguments: args))
               }
+              // Finalize thinking block: update with accumulated text and signature from the stop event
+              if let idx = currentThinkingIndex,
+                 idx >= 0,
+                 idx < output.content.count,
+                 case let .reasoning(existing) = output.content[idx]
+              {
+                // The signature may come on content_block_stop or was already set on start
+                let contentBlock = dict["content_block"] as? [String: Any]
+                let finalSignature = contentBlock?["signature"] as? String ?? existing.encryptedContent
+                let summary: [JSONValue] = currentThinkingBuffer.isEmpty ? [] : [.string(currentThinkingBuffer)]
+                output.content[idx] = .reasoning(.init(
+                  id: existing.id,
+                  encryptedContent: finalSignature,
+                  summary: summary
+                ))
+              }
               currentTextIndex = nil
               currentToolCallIndex = nil
               currentToolCallArgumentsBuffer = ""
+              currentThinkingIndex = nil
+              currentThinkingBuffer = ""
 
             case "message_delta":
               if let delta = dict["delta"] as? [String: Any],
