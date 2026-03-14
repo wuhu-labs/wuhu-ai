@@ -81,4 +81,71 @@ struct OpenAIResponsesProviderTests {
     let stream = try await provider.stream(model: model, context: context, options: .init(apiKey: apiKey, reasoningEffort: .low))
     for try await _ in stream {}
   }
+
+  @Test func serializesToolCallArgumentsWithSortedKeys() async throws {
+    let apiKey = "sk-test"
+
+    // Verify that tool call arguments are serialized with deterministic (sorted)
+    // key ordering. Before the fix, jsonString() called JSONSerialization without
+    // .sortedKeys, causing non-deterministic argument strings that broke OpenAI's
+    // prompt cache prefix matching across requests.
+    final class BodyCollector: @unchecked Sendable {
+      var body: Data?
+      func capture(_ data: Data) { body = data }
+    }
+    let collector = BodyCollector()
+
+    let http = MockHTTPClient(sseHandler: { request in
+      if let body = request.body {
+        collector.capture(body)
+      }
+      return AsyncThrowingStream { continuation in
+        continuation.finish()
+      }
+    })
+
+    let provider = OpenAIResponsesProvider(http: http)
+    let model = Model(id: "gpt-5.2", provider: .openai)
+
+    let assistant = AssistantMessage(provider: .openai, model: model.id, content: [
+      .toolCall(.init(
+        id: "call_1",
+        name: "bash",
+        arguments: .object([
+          "command": .string("echo hello"),
+          "timeout": .number(30),
+          "mount": .string("primary"),
+          "zebra": .string("last"),
+          "alpha": .string("first"),
+        ])
+      )),
+    ], stopReason: .toolUse)
+
+    let context = Context(systemPrompt: "test", messages: [
+      .user("Run a command"),
+      .assistant(assistant),
+      .toolResult(.init(toolCallId: "call_1", toolName: "bash", content: [.text("hello\n")])),
+      .user("Again"),
+    ])
+
+    let stream = try await provider.stream(model: model, context: context, options: .init(apiKey: apiKey))
+    for try await _ in stream {}
+
+    let body = try #require(collector.body)
+    let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+    let input = try #require(json["input"] as? [[String: Any]])
+    let funcCall = try #require(input.first(where: { ($0["type"] as? String) == "function_call" }))
+    let argsString = try #require(funcCall["arguments"] as? String)
+
+    // Verify sorted order: "alpha" < "command" < "mount" < "timeout" < "zebra"
+    let alphaIdx = try #require(argsString.range(of: "\"alpha\"")).lowerBound
+    let commandIdx = try #require(argsString.range(of: "\"command\"")).lowerBound
+    let mountIdx = try #require(argsString.range(of: "\"mount\"")).lowerBound
+    let timeoutIdx = try #require(argsString.range(of: "\"timeout\"")).lowerBound
+    let zebraIdx = try #require(argsString.range(of: "\"zebra\"")).lowerBound
+    #expect(alphaIdx < commandIdx)
+    #expect(commandIdx < mountIdx)
+    #expect(mountIdx < timeoutIdx)
+    #expect(timeoutIdx < zebraIdx)
+  }
 }
