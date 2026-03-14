@@ -422,7 +422,7 @@ private func splitToolCallId(_ id: String) -> (callId: String, itemId: String?) 
 
 private func jsonString(_ value: JSONValue) -> String {
   if case let .string(s) = value { return s }
-  if let data = try? JSONSerialization.data(withJSONObject: value.toAny()),
+  if let data = try? JSONSerialization.data(withJSONObject: value.toAny(), options: .sortedKeys),
      let text = String(data: data, encoding: .utf8)
   {
     return text
