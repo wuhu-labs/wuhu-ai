@@ -1,33 +1,39 @@
 import Foundation
+import Fetch
+import FetchSSE
+import HTTPTypes
 
 public struct OpenAIResponsesProvider: Sendable {
-  private let http: any HTTPClient
+  private let fetch: FetchClient
 
-  public init(http: any HTTPClient) {
-    self.http = http
+  public init(fetch: FetchClient) {
+    self.fetch = fetch
   }
 
   public func stream(model: Model, context: Context, options: RequestOptions = .init()) async throws
     -> AsyncThrowingStream<AssistantMessageEvent, any Error>
   {
-    guard model.provider == .openai else { throw PiAIError.unsupported("Expected provider openai") }
+    guard model.provider == .openai else { throw WuhuAIError.unsupported("Expected provider openai") }
 
     let apiKey = try resolveAPIKey(options.apiKey, env: "OPENAI_API_KEY", provider: model.provider)
 
     let url = model.baseURL.appending(path: "responses")
-    var request = HTTPRequest(url: url, method: "POST")
-    request.setHeader("Bearer \(apiKey)", for: "Authorization")
-    request.setHeader("application/json", for: "Content-Type")
-    request.setHeader("text/event-stream", for: "Accept")
+    var headers = Headers()
+    headers[.authorization] = "Bearer \(apiKey)"
+    headers[.contentType] = "application/json"
+    headers[.accept] = "text/event-stream"
     for (k, v) in options.headers {
-      request.setHeader(v, for: k)
+      setHeader(v, for: k, in: &headers)
     }
 
-    let body = try JSONSerialization.data(withJSONObject: buildBody(model: model, context: context, options: options), options: .sortedKeys)
-    request.body = body
+    let request = try makeJSONRequest(
+      url: url,
+      headers: headers,
+      bodyJSONObject: buildBody(model: model, context: context, options: options)
+    )
 
-    let sseResponse = try await http.sse(for: request)
-    return mapResponsesSSE(sseResponse.events, provider: model.provider, modelId: model.id)
+    let response = try await validatedResponse(for: request, using: self.fetch)
+    return mapResponsesSSE(response.sse(), provider: model.provider, modelId: model.id)
   }
 
   private func buildBody(model: Model, context: Context, options: RequestOptions) -> [String: Any] {
@@ -219,7 +225,7 @@ public struct OpenAIResponsesProvider: Sendable {
   }
 
   private func mapResponsesSSE(
-    _ sse: AsyncThrowingStream<SSEMessage, any Error>,
+    _ sse: AsyncThrowingStream<SSEEvent, any Error>,
     provider: Provider,
     modelId: String,
   ) -> AsyncThrowingStream<AssistantMessageEvent, any Error> {

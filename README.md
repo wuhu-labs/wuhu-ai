@@ -1,6 +1,6 @@
 # wuhu-ai
 
-**PiAI** — a unified Swift LLM client library.
+**WuhuAI** — a unified Swift LLM client library built directly on top of `Fetch`.
 
 Provides a single `LLMProvider` protocol with streaming support across multiple backends:
 
@@ -11,20 +11,29 @@ Provides a single `LLMProvider` protocol with streaming support across multiple 
 ## Usage
 
 ```swift
-import PiAI
+import AsyncHTTPClient
+import Fetch
+import FetchAsyncHTTPClient
+import WuhuAI
 
-let provider = OpenAIResponsesProvider(apiKey: "sk-...")
-let events = try await provider.chatCompletionStream(
-  messages: [.user("Say hello")],
-  model: "gpt-4.1",
-  options: .init()
+let provider = OpenAIResponsesProvider(fetch: .asyncHTTPClient(.shared))
+let model = Model(id: "gpt-4.1-mini", provider: .openai)
+let context = Context(messages: [
+  .user("Say hello"),
+])
+
+let events = try await provider.stream(
+  model: model,
+  context: context,
+  options: .init(apiKey: "sk-...")
 )
+
 for try await event in events {
   switch event {
-  case .text(let chunk):
-    print(chunk, terminator: "")
-  case .finished(let usage):
-    print("\nTokens: \(usage)")
+  case let .textDelta(delta, _):
+    print(delta, terminator: "")
+  case let .done(message):
+    print("\nTokens: \(String(describing: message.usage))")
   default:
     break
   }
@@ -34,13 +43,16 @@ for try await event in events {
 ## Adding as a Dependency
 
 ```swift
-.package(url: "https://github.com/wuhu-labs/wuhu-ai.git", from: "0.1.0")
+.package(url: "https://github.com/wuhu-labs/wuhu-ai.git", branch: "main")
+.package(url: "https://github.com/wuhu-labs/wuhu-fetch.git", branch: "main")
+.package(url: "https://github.com/wuhu-labs/wuhu-fetch-async-http-client.git", branch: "main")
 ```
 
-Then depend on the `PiAI` product:
+Then depend on `WuhuAI` and the fetch transport you want:
 
 ```swift
-.product(name: "PiAI", package: "wuhu-ai")
+.product(name: "WuhuAI", package: "wuhu-ai")
+.product(name: "FetchAsyncHTTPClient", package: "wuhu-fetch-async-http-client")
 ```
 
 ## License

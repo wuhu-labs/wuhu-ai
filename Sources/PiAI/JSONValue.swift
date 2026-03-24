@@ -85,7 +85,7 @@ public enum JSONValue: Sendable, Hashable, Codable {
       }
       return .object(object)
     default:
-      throw PiAIError.decoding("Unsupported JSON value type: \(type(of: any))")
+      throw WuhuAIError.decoding("Unsupported JSON value type: \(type(of: any))")
     }
   }
 

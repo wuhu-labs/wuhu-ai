@@ -1,6 +1,6 @@
 import Foundation
-import PiAI
 import Testing
+import WuhuAI
 
 struct ImageContentTests {
   // MARK: - ImageContent type
@@ -78,8 +78,8 @@ struct ImageContentTests {
   @Test func anthropicUserMessageWithImage() async throws {
     let apiKey = "ak-test"
 
-    let http = MockHTTPClient(sseHandler: { request in
-      let body = try #require(request.body)
+    let fetch = MockFetchClient(handler: { request in
+      let body = try #require(try await bodyData(request))
       let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
       let messages = try #require(json["messages"] as? [[String: Any]])
       let first = try #require(messages.first)
@@ -99,13 +99,12 @@ struct ImageContentTests {
       #expect(source["media_type"] as? String == "image/png")
       #expect(source["data"] as? String == "aGVsbG8=")
 
-      return AsyncThrowingStream { continuation in
-        continuation.yield(.init(event: "message_stop", data: #"{}"#))
-        continuation.finish()
-      }
+      return sseResponse([
+        .init(event: "message_stop", data: #"{}"#),
+      ])
     })
 
-    let provider = AnthropicMessagesProvider(http: http)
+    let provider = AnthropicMessagesProvider(fetch: fetch.client)
     let model = Model(id: "claude-sonnet-4-5", provider: .anthropic)
     let context = Context(systemPrompt: "You are helpful.", messages: [
       .user(.init(content: [
@@ -121,8 +120,8 @@ struct ImageContentTests {
   @Test func anthropicUserMessageImageOnlyGetsFallbackText() async throws {
     let apiKey = "ak-test"
 
-    let http = MockHTTPClient(sseHandler: { request in
-      let body = try #require(request.body)
+    let fetch = MockFetchClient(handler: { request in
+      let body = try #require(try await bodyData(request))
       let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
       let messages = try #require(json["messages"] as? [[String: Any]])
       let first = try #require(messages.first)
@@ -132,13 +131,12 @@ struct ImageContentTests {
       #expect(content.count == 2)
       #expect(content[0]["text"] as? String == "(see attached image)")
 
-      return AsyncThrowingStream { continuation in
-        continuation.yield(.init(event: "message_stop", data: #"{}"#))
-        continuation.finish()
-      }
+      return sseResponse([
+        .init(event: "message_stop", data: #"{}"#),
+      ])
     })
 
-    let provider = AnthropicMessagesProvider(http: http)
+    let provider = AnthropicMessagesProvider(fetch: fetch.client)
     let model = Model(id: "claude-sonnet-4-5", provider: .anthropic)
     let context = Context(systemPrompt: "You are helpful.", messages: [
       .user(.init(content: [
@@ -155,8 +153,8 @@ struct ImageContentTests {
   @Test func anthropicToolResultWithImageUsesArrayContent() async throws {
     let apiKey = "ak-test"
 
-    let http = MockHTTPClient(sseHandler: { request in
-      let body = try #require(request.body)
+    let fetch = MockFetchClient(handler: { request in
+      let body = try #require(try await bodyData(request))
       let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
       let messages = try #require(json["messages"] as? [[String: Any]])
 
@@ -180,13 +178,12 @@ struct ImageContentTests {
       let imageBlock = toolContent[1]
       #expect(imageBlock["type"] as? String == "image")
 
-      return AsyncThrowingStream { continuation in
-        continuation.yield(.init(event: "message_stop", data: #"{}"#))
-        continuation.finish()
-      }
+      return sseResponse([
+        .init(event: "message_stop", data: #"{}"#),
+      ])
     })
 
-    let provider = AnthropicMessagesProvider(http: http)
+    let provider = AnthropicMessagesProvider(fetch: fetch.client)
     let model = Model(id: "claude-sonnet-4-5", provider: .anthropic)
     let context = Context(systemPrompt: nil, messages: [
       .user("Take a screenshot"),
@@ -210,8 +207,8 @@ struct ImageContentTests {
   @Test func anthropicToolResultWithoutImageUsesStringContent() async throws {
     let apiKey = "ak-test"
 
-    let http = MockHTTPClient(sseHandler: { request in
-      let body = try #require(request.body)
+    let fetch = MockFetchClient(handler: { request in
+      let body = try #require(try await bodyData(request))
       let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
       let messages = try #require(json["messages"] as? [[String: Any]])
 
@@ -227,13 +224,12 @@ struct ImageContentTests {
       let stringContent = try #require(toolResult["content"] as? String)
       #expect(stringContent == "Some text output")
 
-      return AsyncThrowingStream { continuation in
-        continuation.yield(.init(event: "message_stop", data: #"{}"#))
-        continuation.finish()
-      }
+      return sseResponse([
+        .init(event: "message_stop", data: #"{}"#),
+      ])
     })
 
-    let provider = AnthropicMessagesProvider(http: http)
+    let provider = AnthropicMessagesProvider(fetch: fetch.client)
     let model = Model(id: "claude-sonnet-4-5", provider: .anthropic)
     let context = Context(systemPrompt: nil, messages: [
       .user("Run tool"),
@@ -256,8 +252,8 @@ struct ImageContentTests {
   @Test func openaiUserMessageWithImage() async throws {
     let apiKey = "sk-test"
 
-    let http = MockHTTPClient(sseHandler: { request in
-      let body = try #require(request.body)
+    let fetch = MockFetchClient(handler: { request in
+      let body = try #require(try await bodyData(request))
       let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
       let input = try #require(json["input"] as? [[String: Any]])
 
@@ -274,13 +270,12 @@ struct ImageContentTests {
       #expect(content[1]["detail"] as? String == "auto")
       #expect(content[1]["image_url"] as? String == "data:image/png;base64,aGVsbG8=")
 
-      return AsyncThrowingStream { continuation in
-        continuation.yield(.init(data: #"{"type":"response.completed","response":{"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}"#))
-        continuation.finish()
-      }
+      return sseResponse([
+        .init(data: #"{"type":"response.completed","response":{"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}"#),
+      ])
     })
 
-    let provider = OpenAIResponsesProvider(http: http)
+    let provider = OpenAIResponsesProvider(fetch: fetch.client)
     let model = Model(id: "gpt-4.1-mini", provider: .openai)
     let context = Context(systemPrompt: "You are helpful.", messages: [
       .user(.init(content: [
@@ -298,8 +293,8 @@ struct ImageContentTests {
   @Test func openaiToolResultWithImageInjectsFollowUp() async throws {
     let apiKey = "sk-test"
 
-    let http = MockHTTPClient(sseHandler: { request in
-      let body = try #require(request.body)
+    let fetch = MockFetchClient(handler: { request in
+      let body = try #require(try await bodyData(request))
       let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
       let input = try #require(json["input"] as? [[String: Any]])
 
@@ -320,13 +315,12 @@ struct ImageContentTests {
       #expect(content[1]["type"] as? String == "input_image")
       #expect(content[1]["image_url"] as? String == "data:image/png;base64,c2NyZWVuc2hvdA==")
 
-      return AsyncThrowingStream { continuation in
-        continuation.yield(.init(data: #"{"type":"response.completed","response":{"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}"#))
-        continuation.finish()
-      }
+      return sseResponse([
+        .init(data: #"{"type":"response.completed","response":{"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}"#),
+      ])
     })
 
-    let provider = OpenAIResponsesProvider(http: http)
+    let provider = OpenAIResponsesProvider(fetch: fetch.client)
     let model = Model(id: "gpt-4.1-mini", provider: .openai)
     let context = Context(systemPrompt: nil, messages: [
       .user("Take a screenshot"),
@@ -350,8 +344,8 @@ struct ImageContentTests {
   @Test func openaiToolResultImageOnlyUsesFallbackText() async throws {
     let apiKey = "sk-test"
 
-    let http = MockHTTPClient(sseHandler: { request in
-      let body = try #require(request.body)
+    let fetch = MockFetchClient(handler: { request in
+      let body = try #require(try await bodyData(request))
       let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
       let input = try #require(json["input"] as? [[String: Any]])
 
@@ -359,13 +353,12 @@ struct ImageContentTests {
       let entry = try #require(fco)
       #expect(entry["output"] as? String == "(see attached image)")
 
-      return AsyncThrowingStream { continuation in
-        continuation.yield(.init(data: #"{"type":"response.completed","response":{"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}"#))
-        continuation.finish()
-      }
+      return sseResponse([
+        .init(data: #"{"type":"response.completed","response":{"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}"#),
+      ])
     })
 
-    let provider = OpenAIResponsesProvider(http: http)
+    let provider = OpenAIResponsesProvider(fetch: fetch.client)
     let model = Model(id: "gpt-4.1-mini", provider: .openai)
     let context = Context(systemPrompt: nil, messages: [
       .user("Take a screenshot"),

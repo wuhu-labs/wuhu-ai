@@ -1,43 +1,49 @@
 import Foundation
+import Fetch
+import FetchSSE
+import HTTPTypes
 
 public struct OpenAICodexResponsesProvider: Sendable {
-  private let http: any HTTPClient
+  private let fetch: FetchClient
 
-  public init(http: any HTTPClient) {
-    self.http = http
+  public init(fetch: FetchClient) {
+    self.fetch = fetch
   }
 
   public func stream(model: Model, context: Context, options: RequestOptions = .init()) async throws
     -> AsyncThrowingStream<AssistantMessageEvent, any Error>
   {
-    guard model.provider == .openaiCodex else { throw PiAIError.unsupported("Expected provider openai-codex") }
+    guard model.provider == .openaiCodex else { throw WuhuAIError.unsupported("Expected provider openai-codex") }
 
     let token = try resolveAPIKey(options.apiKey, env: "OPENAI_API_KEY", provider: model.provider)
     let accountId = try extractChatGPTAccountId(fromJWT: token)
 
     let url = model.baseURL.appending(path: "codex").appending(path: "responses")
-    var request = HTTPRequest(url: url, method: "POST")
-    request.setHeader("Bearer \(token)", for: "Authorization")
-    request.setHeader(accountId, for: "chatgpt-account-id")
-    request.setHeader("responses=experimental", for: "OpenAI-Beta")
-    request.setHeader("pi", for: "originator")
-    request.setHeader("text/event-stream", for: "Accept")
-    request.setHeader("application/json", for: "Content-Type")
+    var headers = Headers()
+    headers[.authorization] = "Bearer \(token)"
+    headers[.accept] = "text/event-stream"
+    headers[.contentType] = "application/json"
+    setHeader(accountId, for: "chatgpt-account-id", in: &headers)
+    setHeader("responses=experimental", for: "OpenAI-Beta", in: &headers)
+    setHeader("pi", for: "originator", in: &headers)
 
     if let sessionId = options.sessionId, !sessionId.isEmpty {
-      request.setHeader(sessionId, for: "conversation_id")
-      request.setHeader(sessionId, for: "session_id")
+      setHeader(sessionId, for: "conversation_id", in: &headers)
+      setHeader(sessionId, for: "session_id", in: &headers)
     }
 
     for (k, v) in options.headers {
-      request.setHeader(v, for: k)
+      setHeader(v, for: k, in: &headers)
     }
 
-    let body = try JSONSerialization.data(withJSONObject: buildBody(model: model, context: context, options: options), options: .sortedKeys)
-    request.body = body
+    let request = try makeJSONRequest(
+      url: url,
+      headers: headers,
+      bodyJSONObject: buildBody(model: model, context: context, options: options)
+    )
 
-    let sseResponse = try await http.sse(for: request)
-    return mapResponsesSSE(sseResponse.events, provider: model.provider, modelId: model.id)
+    let response = try await validatedResponse(for: request, using: self.fetch)
+    return mapResponsesSSE(response.sse(), provider: model.provider, modelId: model.id)
   }
 
   private func buildBody(model: Model, context: Context, options: RequestOptions) -> [String: Any] {
@@ -98,7 +104,7 @@ public struct OpenAICodexResponsesProvider: Sendable {
   }
 
   private func mapResponsesSSE(
-    _ sse: AsyncThrowingStream<SSEMessage, any Error>,
+    _ sse: AsyncThrowingStream<SSEEvent, any Error>,
     provider: Provider,
     modelId: String,
   ) -> AsyncThrowingStream<AssistantMessageEvent, any Error> {
@@ -142,7 +148,7 @@ public struct OpenAICodexResponsesProvider: Sendable {
               }
 
             case "response.failed":
-              throw PiAIError.httpStatus(code: 500, body: message.data)
+              throw WuhuAIError.httpStatus(code: 500, body: message.data)
 
             default:
               continue
@@ -186,19 +192,19 @@ private func clampReasoningEffort(modelId: String, effort: ReasoningEffort) -> R
 
 private func extractChatGPTAccountId(fromJWT token: String) throws -> String {
   let parts = token.split(separator: ".")
-  guard parts.count == 3 else { throw PiAIError.decoding("Invalid JWT") }
+  guard parts.count == 3 else { throw WuhuAIError.decoding("Invalid JWT") }
 
   let payload = String(parts[1])
-  guard let payloadData = base64URLDecode(payload) else { throw PiAIError.decoding("Invalid base64 payload") }
+  guard let payloadData = base64URLDecode(payload) else { throw WuhuAIError.decoding("Invalid base64 payload") }
 
   let json = try JSONSerialization.jsonObject(with: payloadData)
-  guard let dict = json as? [String: Any] else { throw PiAIError.decoding("JWT payload not object") }
+  guard let dict = json as? [String: Any] else { throw WuhuAIError.decoding("JWT payload not object") }
   let claimKey = "https://api.openai.com/auth"
   guard let claim = dict[claimKey] as? [String: Any],
         let accountId = claim["chatgpt_account_id"] as? String,
         !accountId.isEmpty
   else {
-    throw PiAIError.decoding("Missing chatgpt_account_id claim")
+    throw WuhuAIError.decoding("Missing chatgpt_account_id claim")
   }
   return accountId
 }

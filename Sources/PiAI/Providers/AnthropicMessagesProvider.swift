@@ -1,43 +1,48 @@
 import Foundation
+import Fetch
+import FetchSSE
+import HTTPTypes
 
 public struct AnthropicMessagesProvider: Sendable {
-  private let http: any HTTPClient
+  private let fetch: FetchClient
   private let promptCachingBetaFeature = "prompt-caching-2024-07-31"
 
-  public init(http: any HTTPClient) {
-    self.http = http
+  public init(fetch: FetchClient) {
+    self.fetch = fetch
   }
 
   public func stream(model: Model, context: Context, options: RequestOptions = .init()) async throws
     -> AsyncThrowingStream<AssistantMessageEvent, any Error>
   {
-    guard model.provider == .anthropic else { throw PiAIError.unsupported("Expected provider anthropic") }
+    guard model.provider == .anthropic else { throw WuhuAIError.unsupported("Expected provider anthropic") }
 
     let apiKey = try resolveAPIKey(options.apiKey, env: "ANTHROPIC_API_KEY", provider: model.provider)
     let url = model.baseURL.appending(path: "messages")
 
-    var request = HTTPRequest(url: url, method: "POST")
-    request.setHeader(apiKey, for: "x-api-key")
-    request.setHeader("application/json", for: "Content-Type")
-    request.setHeader("text/event-stream", for: "Accept")
-    request.setHeader("2023-06-01", for: "anthropic-version")
+    var headers = Headers()
+    headers[.contentType] = "application/json"
+    headers[.accept] = "text/event-stream"
+    setHeader(apiKey, for: "x-api-key", in: &headers)
+    setHeader("2023-06-01", for: "anthropic-version", in: &headers)
     for (k, v) in options.headers {
-      request.setHeader(v, for: k)
+      setHeader(v, for: k, in: &headers)
     }
     if let caching = options.anthropicPromptCaching,
        caching.sendBetaHeader
     {
-      let existing = getHeaderValue(request.headers, name: "anthropic-beta")
+      let existing = getHeaderValue(headers, name: "anthropic-beta")
       let merged = mergeCSVHeader(existing, adding: promptCachingBetaFeature)
-      normalizeHeaderKey(&request.headers, name: "anthropic-beta")
-      request.setHeader(merged, for: "anthropic-beta")
+      setHeader(merged, for: "anthropic-beta", in: &headers)
     }
 
-    let body = try JSONSerialization.data(withJSONObject: buildBody(model: model, context: context, options: options), options: .sortedKeys)
-    request.body = body
+    let request = try makeJSONRequest(
+      url: url,
+      headers: headers,
+      bodyJSONObject: buildBody(model: model, context: context, options: options)
+    )
 
-    let sseResponse = try await http.sse(for: request)
-    return mapAnthropicSSE(sseResponse.events, provider: model.provider, modelId: model.id)
+    let response = try await validatedResponse(for: request, using: self.fetch)
+    return mapAnthropicSSE(response.sse(), provider: model.provider, modelId: model.id)
   }
 
   private func buildBody(model: Model, context: Context, options: RequestOptions) -> [String: Any] {
@@ -269,20 +274,6 @@ public struct AnthropicMessagesProvider: Sendable {
     }
   }
 
-  private func getHeaderValue(_ headers: [String: [String]], name: String) -> String? {
-    headers.first(where: { $0.key.caseInsensitiveCompare(name) == .orderedSame })?.value.first
-  }
-
-  private func normalizeHeaderKey(_ headers: inout [String: [String]], name: String) {
-    for key in headers.keys where key.caseInsensitiveCompare(name) == .orderedSame && key != name {
-      let values = headers.removeValue(forKey: key)
-      if let values {
-        headers[name] = values
-      }
-      break
-    }
-  }
-
   private func mergeCSVHeader(_ existing: String?, adding feature: String) -> String {
     guard let existing, !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
       return feature
@@ -299,7 +290,7 @@ public struct AnthropicMessagesProvider: Sendable {
   }
 
   private func mapAnthropicSSE(
-    _ sse: AsyncThrowingStream<SSEMessage, any Error>,
+    _ sse: AsyncThrowingStream<SSEEvent, any Error>,
     provider: Provider,
     modelId: String,
   ) -> AsyncThrowingStream<AssistantMessageEvent, any Error> {
@@ -316,7 +307,7 @@ public struct AnthropicMessagesProvider: Sendable {
 
         do {
           for try await message in sse {
-            guard let event = message.event else { continue }
+            let event = message.event
             guard let dict = try parseJSON(message.data) else { continue }
 
             switch event {
