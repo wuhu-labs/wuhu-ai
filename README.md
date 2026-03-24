@@ -48,7 +48,7 @@ for try await event in events {
 .package(url: "https://github.com/wuhu-labs/wuhu-fetch-async-http-client.git", branch: "main")
 ```
 
-Then depend on `WuhuAI` and the fetch transport you want:
+Then depend on `WuhuAI`, plus whatever fetch transport you want to use:
 
 ```swift
 .product(name: "WuhuAI", package: "wuhu-ai")

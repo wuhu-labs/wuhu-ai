@@ -21,8 +21,6 @@ let package = Package(
   ],
   dependencies: [
     .package(url: "https://github.com/wuhu-labs/wuhu-fetch", branch: "main"),
-    .package(url: "https://github.com/wuhu-labs/wuhu-fetch-async-http-client", branch: "main"),
-    .package(url: "https://github.com/swift-server/async-http-client.git", exact: "1.30.3"),
   ],
   targets: [
     .target(
@@ -31,7 +29,7 @@ let package = Package(
         .product(name: "Fetch", package: "wuhu-fetch"),
         .product(name: "FetchSSE", package: "wuhu-fetch"),
       ],
-      path: "Sources/PiAI",
+      path: "Sources/WuhuAI",
       swiftSettings: strictConcurrency
     ),
     .testTarget(
@@ -39,17 +37,7 @@ let package = Package(
       dependencies: [
         "WuhuAI",
       ],
-      path: "Tests/PiAITests",
-      swiftSettings: strictConcurrency
-    ),
-    .testTarget(
-      name: "WuhuAILiveTests",
-      dependencies: [
-        "WuhuAI",
-        .product(name: "FetchAsyncHTTPClient", package: "wuhu-fetch-async-http-client"),
-        .product(name: "AsyncHTTPClient", package: "async-http-client"),
-      ],
-      path: "Tests/PiAIAsyncHTTPClientTests",
+      path: "Tests/WuhuAITests",
       swiftSettings: strictConcurrency
     ),
   ]
