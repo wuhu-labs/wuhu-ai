@@ -1,6 +1,6 @@
 import Foundation
 
-public enum PiAIError: Error, Sendable, CustomStringConvertible {
+public enum WuhuAIError: Error, Sendable, CustomStringConvertible {
   case missingAPIKey(provider: Provider)
   case invalidURL(String)
   case invalidResponse
@@ -28,3 +28,6 @@ public enum PiAIError: Error, Sendable, CustomStringConvertible {
     }
   }
 }
+
+@available(*, deprecated, renamed: "WuhuAIError")
+public typealias PiAIError = WuhuAIError

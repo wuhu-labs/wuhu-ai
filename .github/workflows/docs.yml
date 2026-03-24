@@ -18,14 +18,14 @@ jobs:
 
       - name: Build with symbol graphs
         run: |
-          xcrun swift build --target PiAI \
+          xcrun swift build --target WuhuAI \
             -Xswiftc -emit-symbol-graph \
             -Xswiftc -emit-symbol-graph-dir -Xswiftc .build/symbol-graphs
 
       - name: Filter symbol graphs
         run: |
           mkdir -p .build/target-symbols
-          cp .build/symbol-graphs/PiAI*.json .build/target-symbols/
+          cp .build/symbol-graphs/WuhuAI*.json .build/target-symbols/
 
       - name: Generate DocC
         run: |
@@ -33,8 +33,8 @@ jobs:
             --additional-symbol-graph-dir .build/target-symbols \
             --output-dir .build/docs \
             --hosting-base-path docs/wuhu-ai \
-            --fallback-display-name PiAI \
-            --fallback-bundle-identifier ai.wuhu.PiAI \
+            --fallback-display-name WuhuAI \
+            --fallback-bundle-identifier ai.wuhu.WuhuAI \
             --fallback-bundle-version 0.1.0
 
       - name: Deploy to R2

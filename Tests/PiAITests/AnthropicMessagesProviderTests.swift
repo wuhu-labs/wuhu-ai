@@ -1,25 +1,24 @@
 import Foundation
-import PiAI
 import Testing
+import WuhuAI
 
 struct AnthropicMessagesProviderTests {
   @Test func streamsAnthropicSSEIntoMessageEvents() async throws {
     let apiKey = "ak-test"
 
-    let http = MockHTTPClient(sseHandler: { request in
+    let fetch = MockFetchClient(handler: { request in
       #expect(request.url.absoluteString == "https://api.anthropic.com/v1/messages")
       let headers = normalizedHeaders(request)
       #expect(headers["x-api-key"] == apiKey)
       #expect(headers["accept"] == "text/event-stream")
 
-      return AsyncThrowingStream { continuation in
-        continuation.yield(.init(event: "content_block_delta", data: #"{"delta":{"type":"text_delta","text":"Hello"}}"#))
-        continuation.yield(.init(event: "message_stop", data: #"{}"#))
-        continuation.finish()
-      }
+      return sseResponse([
+        .init(event: "content_block_delta", data: #"{"delta":{"type":"text_delta","text":"Hello"}}"#),
+        .init(event: "message_stop", data: #"{}"#),
+      ])
     })
 
-    let provider = AnthropicMessagesProvider(http: http)
+    let provider = AnthropicMessagesProvider(fetch: fetch.client)
     let model = Model(id: "claude-sonnet-4-5", provider: .anthropic)
     let context = Context(systemPrompt: "You are a helpful assistant.", messages: [
       .user("Say hello"),
@@ -40,31 +39,28 @@ struct AnthropicMessagesProviderTests {
   @Test func parsesUsageFromSSEEvents() async throws {
     let apiKey = "ak-test"
 
-    let http = MockHTTPClient(sseHandler: { _ in
-      AsyncThrowingStream { continuation in
-        // message_start with usage
-        continuation.yield(.init(
+    let fetch = MockFetchClient(handler: { _ in
+      sseResponse([
+        .init(
           event: "message_start",
           data: #"{"type":"message_start","message":{"usage":{"input_tokens":100,"cache_creation_input_tokens":20,"cache_read_input_tokens":10,"output_tokens":0}}}"#,
-        ))
-        continuation.yield(.init(
+        ),
+        .init(
           event: "content_block_delta",
           data: #"{"delta":{"type":"text_delta","text":"Hi"}}"#,
-        ))
-        // message_delta with output usage
-        continuation.yield(.init(
+        ),
+        .init(
           event: "message_delta",
           data: #"{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":42}}"#,
-        ))
-        continuation.yield(.init(
+        ),
+        .init(
           event: "message_stop",
           data: #"{}"#,
-        ))
-        continuation.finish()
-      }
+        ),
+      ])
     })
 
-    let provider = AnthropicMessagesProvider(http: http)
+    let provider = AnthropicMessagesProvider(fetch: fetch.client)
     let model = Model(id: "claude-sonnet-4-5", provider: .anthropic)
     let context = Context(systemPrompt: "Test", messages: [.user("Hi")])
 
@@ -86,21 +82,20 @@ struct AnthropicMessagesProviderTests {
   @Test func automaticPromptCachingAddsTopLevelCacheControl() async throws {
     let apiKey = "ak-test"
 
-    let http = MockHTTPClient(sseHandler: { request in
-      let body = try #require(request.body)
+    let fetch = MockFetchClient(handler: { request in
+      let body = try #require(try await bodyData(request))
       let obj = try JSONSerialization.jsonObject(with: body) as? [String: Any]
       let dict = try #require(obj)
 
       let cacheControl = dict["cache_control"] as? [String: Any]
       #expect(cacheControl?["type"] as? String == "ephemeral")
 
-      return AsyncThrowingStream { continuation in
-        continuation.yield(.init(event: "message_stop", data: #"{}"#))
-        continuation.finish()
-      }
+      return sseResponse([
+        .init(event: "message_stop", data: #"{}"#),
+      ])
     })
 
-    let provider = AnthropicMessagesProvider(http: http)
+    let provider = AnthropicMessagesProvider(fetch: fetch.client)
     let model = Model(id: "claude-sonnet-4-5", provider: .anthropic)
     let context = Context(systemPrompt: "You are a helpful assistant.", messages: [
       .user("Say hello"),
@@ -117,8 +112,8 @@ struct AnthropicMessagesProviderTests {
   @Test func explicitPromptCachingAddsBlockBreakpoints() async throws {
     let apiKey = "ak-test"
 
-    let http = MockHTTPClient(sseHandler: { request in
-      let body = try #require(request.body)
+    let fetch = MockFetchClient(handler: { request in
+      let body = try #require(try await bodyData(request))
       let obj = try JSONSerialization.jsonObject(with: body) as? [String: Any]
       let dict = try #require(obj)
 
@@ -132,13 +127,12 @@ struct AnthropicMessagesProviderTests {
       let last = try #require(content?.last)
       #expect((last["cache_control"] as? [String: Any])?["type"] as? String == "ephemeral")
 
-      return AsyncThrowingStream { continuation in
-        continuation.yield(.init(event: "message_stop", data: #"{}"#))
-        continuation.finish()
-      }
+      return sseResponse([
+        .init(event: "message_stop", data: #"{}"#),
+      ])
     })
 
-    let provider = AnthropicMessagesProvider(http: http)
+    let provider = AnthropicMessagesProvider(fetch: fetch.client)
     let model = Model(id: "claude-sonnet-4-5", provider: .anthropic)
     let context = Context(systemPrompt: "You are a helpful assistant.", messages: [
       .user("Say hello"),
@@ -151,12 +145,4 @@ struct AnthropicMessagesProviderTests {
     )
     for try await _ in stream {}
   }
-}
-
-private func normalizedHeaders(_ request: HTTPRequest) -> [String: String] {
-  Dictionary(
-    uniqueKeysWithValues: request.headers.map { key, values in
-      (key.lowercased(), values.joined(separator: ", "))
-    },
-  )
 }

@@ -1,26 +1,25 @@
 import Foundation
-import PiAI
 import Testing
+import WuhuAI
 
 struct OpenAIResponsesProviderTests {
   @Test func streamsResponsesSSEIntoMessageEvents() async throws {
     let apiKey = "sk-test"
 
-    let http = MockHTTPClient(sseHandler: { request in
+    let fetch = MockFetchClient(handler: { request in
       #expect(request.url.absoluteString == "https://api.openai.com/v1/responses")
-      let headers = request.headers
-      #expect(headers["Authorization"] == ["Bearer \(apiKey)"])
-      #expect(headers["Accept"] == ["text/event-stream"])
+      let headers = normalizedHeaders(request)
+      #expect(headers["authorization"] == "Bearer \(apiKey)")
+      #expect(headers["accept"] == "text/event-stream")
 
-      return AsyncThrowingStream { continuation in
-        continuation.yield(.init(data: #"{"type":"response.output_text.delta","delta":"Hello"}"#))
-        continuation.yield(.init(data: #"{"type":"response.output_item.done","item":{"content":[{"type":"output_text","text":"Hello"}]}}"#))
-        continuation.yield(.init(data: #"{"type":"response.completed","response":{"usage":{"input_tokens":1,"output_tokens":2,"total_tokens":3}}}"#))
-        continuation.finish()
-      }
+      return sseResponse([
+        .init(data: #"{"type":"response.output_text.delta","delta":"Hello"}"#),
+        .init(data: #"{"type":"response.output_item.done","item":{"content":[{"type":"output_text","text":"Hello"}]}}"#),
+        .init(data: #"{"type":"response.completed","response":{"usage":{"input_tokens":1,"output_tokens":2,"total_tokens":3}}}"#),
+      ])
     })
 
-    let provider = OpenAIResponsesProvider(http: http)
+    let provider = OpenAIResponsesProvider(fetch: fetch.client)
     let model = Model(id: "gpt-4.1-mini", provider: .openai)
     let context = Context(systemPrompt: "You are a helpful assistant.", messages: [
       .user("Say hello"),
@@ -46,8 +45,8 @@ struct OpenAIResponsesProviderTests {
 
     let apiKey = "sk-test"
 
-    let http = MockHTTPClient(sseHandler: { request in
-      let body = try #require(request.body)
+    let fetch = MockFetchClient(handler: { request in
+      let body = try #require(try await bodyData(request))
       let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
 
       #expect(json["store"] as? Bool == true)
@@ -58,12 +57,10 @@ struct OpenAIResponsesProviderTests {
       #expect(reasoning?["encrypted_content"] as? String == "enc_1")
       #expect((reasoning?["summary"] as? [Any]) != nil)
 
-      return AsyncThrowingStream { continuation in
-        continuation.finish()
-      }
+      return sseResponse([])
     })
 
-    let provider = OpenAIResponsesProvider(http: http)
+    let provider = OpenAIResponsesProvider(fetch: fetch.client)
     let model = Model(id: "gpt-5.2-codex", provider: .openai)
 
     let assistant = AssistantMessage(provider: .openai, model: model.id, content: [
@@ -95,16 +92,14 @@ struct OpenAIResponsesProviderTests {
     }
     let collector = BodyCollector()
 
-    let http = MockHTTPClient(sseHandler: { request in
-      if let body = request.body {
+    let fetch = MockFetchClient(handler: { request in
+      if let body = try await bodyData(request) {
         collector.capture(body)
       }
-      return AsyncThrowingStream { continuation in
-        continuation.finish()
-      }
+      return sseResponse([])
     })
 
-    let provider = OpenAIResponsesProvider(http: http)
+    let provider = OpenAIResponsesProvider(fetch: fetch.client)
     let model = Model(id: "gpt-5.2", provider: .openai)
 
     let assistant = AssistantMessage(provider: .openai, model: model.id, content: [
