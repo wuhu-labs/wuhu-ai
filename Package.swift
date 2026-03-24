@@ -11,7 +11,7 @@ let package = Package(
     .library(name: "WuhuAI", targets: ["WuhuAI"]),
   ],
   dependencies: [
-    .package(url: "https://github.com/wuhu-labs/wuhu-fetch", branch: "main"),
+    .package(url: "https://github.com/wuhu-labs/wuhu-fetch", .upToNextMinor(from: "0.1.0")),
   ],
   targets: [
     .target(
