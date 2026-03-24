@@ -1,15 +1,6 @@
 // swift-tools-version: 6.2
 import PackageDescription
 
-let strictConcurrency: [SwiftSetting] = [
-  .unsafeFlags([
-    "-Xfrontend",
-    "-strict-concurrency=complete",
-    "-Xfrontend",
-    "-warn-concurrency",
-  ]),
-]
-
 let package = Package(
   name: "wuhu-ai",
   platforms: [
@@ -29,16 +20,15 @@ let package = Package(
         .product(name: "Fetch", package: "wuhu-fetch"),
         .product(name: "FetchSSE", package: "wuhu-fetch"),
       ],
-      path: "Sources/WuhuAI",
-      swiftSettings: strictConcurrency
+      path: "Sources/WuhuAI"
     ),
     .testTarget(
       name: "WuhuAITests",
       dependencies: [
         "WuhuAI",
       ],
-      path: "Tests/WuhuAITests",
-      swiftSettings: strictConcurrency
+      path: "Tests/WuhuAITests"
     ),
-  ]
+  ],
+  swiftLanguageModes: [.v6]
 )
