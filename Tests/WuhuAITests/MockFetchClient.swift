@@ -14,13 +14,7 @@ struct MockFetchClient {
 
 func bodyData(_ request: Request) async throws -> Data? {
   guard let body = request.body else { return nil }
-
-  var bytes: Bytes = []
-  for try await chunk in body.stream {
-    bytes.append(contentsOf: chunk)
-  }
-
-  return Data(bytes)
+  return try await body.data()
 }
 
 func normalizedHeaders(_ request: Request) -> [String: String] {
