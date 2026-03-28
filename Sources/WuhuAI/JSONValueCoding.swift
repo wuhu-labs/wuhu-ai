@@ -286,8 +286,10 @@ private final class _JSONValueEncoder: Encoder, SingleValueEncodingContainer {
       return _JSONValueSingleBox(.number(date.timeIntervalSince1970 * 1000))
     case .iso8601:
       return _JSONValueSingleBox(.string(_JSONValueCoding.iso8601String(from: date)))
+#if canImport(Darwin)
     case let .formatted(formatter):
       return _JSONValueSingleBox(.string(formatter.string(from: date)))
+#endif
     case let .custom(strategy):
       let encoder = makeDeferredEncoder(at: codingPath)
       try strategy(date, encoder)
@@ -749,12 +751,14 @@ private final class _JSONValueDecoder: Decoder, SingleValueDecodingContainer {
         throw DecodingError.dataCorrupted(.init(codingPath: codingPath, debugDescription: "Expected ISO8601 date string."))
       }
       return date
+#if canImport(Darwin)
     case let .formatted(formatter):
       let string = try _JSONValueDecoder(value: value, options: options, codingPath: codingPath).decode(String.self)
       guard let date = formatter.date(from: string) else {
         throw DecodingError.dataCorrupted(.init(codingPath: codingPath, debugDescription: "Date string does not match formatter."))
       }
       return date
+#endif
     case let .custom(strategy):
       return try strategy(_JSONValueDecoder(value: value, options: options, codingPath: codingPath))
     @unknown default:
