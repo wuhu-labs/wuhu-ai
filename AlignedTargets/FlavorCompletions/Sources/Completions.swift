@@ -107,27 +107,19 @@ public enum Completions {
   }
 
   public static func infer(_ input: Input, target: ModelTarget) async throws -> Output {
-    _ = input
-    try ensureFlavor(target.model)
-    throw AIError.unimplemented("Completions.infer")
+    try await CompletionsRuntime().infer(input, target: target)
   }
 
   public static func stream(_ input: Input, target: ModelTarget) async throws -> AICore.OutputStream {
-    _ = input
-    try ensureFlavor(target.model)
-    throw AIError.unimplemented("Completions.stream")
+    try await CompletionsRuntime().stream(input, target: target)
   }
 
   public static func encode(_ input: Input, model: Model) throws -> JSONValue {
-    _ = input
-    try ensureFlavor(model)
-    throw AIError.unimplemented("Completions.encode")
+    try _encode(input, model: model)
   }
 
   public static func decode(_ response: JSONValue, model: Model) throws -> Output {
-    _ = response
-    try ensureFlavor(model)
-    throw AIError.unimplemented("Completions.decode")
+    try _decode(response, model: model)
   }
 
   public static func makeStreamingParser(model: Model) -> Parser {

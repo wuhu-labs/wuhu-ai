@@ -48,6 +48,8 @@ let package = Package(
       dependencies: [
         "AICore",
         "JSONUtilities",
+        .product(name: "Dependencies", package: "swift-dependencies"),
+        .product(name: "Fetch", package: "wuhu-fetch"),
       ],
       path: "AlignedTargets/FlavorCompletions/Sources"
     ),
@@ -56,6 +58,8 @@ let package = Package(
       dependencies: [
         "AICore",
         "JSONUtilities",
+        .product(name: "Dependencies", package: "swift-dependencies"),
+        .product(name: "Fetch", package: "wuhu-fetch"),
       ],
       path: "AlignedTargets/FlavorAnthropicMessages/Sources"
     ),
