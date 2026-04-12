@@ -87,7 +87,13 @@ let package = Package(
         "AI",
         .product(name: "FetchURLSession", package: "wuhu-fetch"),
       ],
-      path: "AlignedTargets/AI/Tests"
+      path: "AlignedTargets/AI/Tests",
+      exclude: [
+        "IntegrationTests/Recordings",
+        "IntegrationTests/llm-forward-proxy.py",
+        "IntegrationTests/llm-forward-proxy.config.sample.json",
+        "IntegrationTests/llm-forward-proxy.config.json",
+      ]
     ),
     .testTarget(
       name: "WuhuAITests",

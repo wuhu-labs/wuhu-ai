@@ -1,0 +1,10 @@
+{
+  "api.anthropic.com": {
+    "header": "x-api-key",
+    "value": "replace-me-with-a-real-anthropic-key"
+  },
+  "api.openai.com": {
+    "header": "Authorization",
+    "value": "Bearer replace-me-with-a-real-openai-key"
+  }
+}

@@ -1,7 +1,6 @@
 import AI
 import AICore
 import Dependencies
-import FetchURLSession
 import FlavorAnthropicMessages
 import FlavorCompletions
 import FlavorResponses
@@ -9,21 +8,20 @@ import Foundation
 import JSONUtilities
 import Testing
 
-@Suite(.serialized)
 struct ToolLoopIntegrationTests {
   @Test("Responses flavor can discover the secret via ls/read tools", .timeLimit(.minutes(3)))
   func responsesToolLoop() async throws {
-    try await assertToolLoop(for: .responses)
+    try await assertToolLoop(for: .responses, testName: "responsesToolLoop")
   }
 
   @Test("Anthropic Messages flavor can discover the secret via ls/read tools", .timeLimit(.minutes(3)))
   func anthropicMessagesToolLoop() async throws {
-    try await assertToolLoop(for: .anthropicMessages)
+    try await assertToolLoop(for: .anthropicMessages, testName: "anthropicMessagesToolLoop")
   }
 
   @Test("Completions flavor can discover the secret via ls/read tools", .timeLimit(.minutes(3)))
   func completionsToolLoop() async throws {
-    try await assertToolLoop(for: .completions)
+    try await assertToolLoop(for: .completions, testName: "completionsToolLoop")
   }
 }
 
@@ -33,56 +31,46 @@ private enum FlavorUnderTest {
   case completions
 
   var modelTarget: ModelTarget {
-    get throws {
-      switch self {
-      case .responses:
-        return ModelTarget(
-          model: .responses(id: "gpt-5.4"),
-          sensitiveHeaders: [
-            "Authorization": "Bearer \(try self.apiKey)",
-          ]
-        )
+    switch self {
+    case .responses:
+      return ModelTarget(
+        model: .responses(id: "gpt-5.4"),
+        sensitiveHeaders: [
+          "Authorization": "Bearer \(apiKey)",
+        ]
+      )
 
-      case .anthropicMessages:
-        return ModelTarget(
-          model: .anthropicMessages(id: "claude-opus-4-5-20251101"),
-          headers: [
-            "anthropic-version": "2023-06-01",
-          ],
-          sensitiveHeaders: [
-            "x-api-key": try self.apiKey,
-          ]
-        )
+    case .anthropicMessages:
+      return ModelTarget(
+        model: .anthropicMessages(id: "claude-opus-4-5-20251101"),
+        headers: [
+          "anthropic-version": "2023-06-01",
+        ],
+        sensitiveHeaders: [
+          "x-api-key": apiKey,
+        ]
+      )
 
-      case .completions:
-        return ModelTarget(
-          model: .completions(
-            id: "gpt-4.1",
-            baseURL: URL(string: "https://api.openai.com/v1")!
-          ),
-          sensitiveHeaders: [
-            "Authorization": "Bearer \(try self.apiKey)",
-          ]
-        )
-      }
+    case .completions:
+      return ModelTarget(
+        model: .completions(
+          id: "gpt-4.1",
+          baseURL: URL(string: "https://api.openai.com/v1")!
+        ),
+        sensitiveHeaders: [
+          "Authorization": "Bearer \(apiKey)",
+        ]
+      )
     }
   }
 
   var apiKey: String {
-    get throws {
-      switch self {
-      case .responses, .completions:
-        return try #require(
-          ProcessInfo.processInfo.environment["OPENAI_API_KEY"],
-          "Set OPENAI_API_KEY before running these integration tests."
-        )
+    switch self {
+    case .responses, .completions:
+      return "abc123"
 
-      case .anthropicMessages:
-        return try #require(
-          ProcessInfo.processInfo.environment["ANTHROPIC_API_KEY"],
-          "Set ANTHROPIC_API_KEY before running these integration tests."
-        )
-      }
+    case .anthropicMessages:
+      return "abc123"
     }
   }
 
@@ -102,7 +90,11 @@ private enum FlavorUnderTest {
   }
 }
 
-private func assertToolLoop(for flavor: FlavorUnderTest) async throws {
+private func assertToolLoop(
+  for flavor: FlavorUnderTest,
+  testName: String,
+  sourceFilePath: StaticString = #filePath
+) async throws {
   let secret = "marigold-squid-4821"
   let fileSystem = DictionaryFileSystem(files: [
     "3.txt": "prime",
@@ -113,11 +105,11 @@ private func assertToolLoop(for flavor: FlavorUnderTest) async throws {
 
   var input = Input(
     instructions: """
-      You are a careful file-inspecting agent.
-      You must use the provided tools to inspect the file system.
-      Do not assume any filenames exist before listing them.
-      Once you know the answer, reply with only the file content.
-      """,
+    You are a careful file-inspecting agent.
+    You must use the provided tools to inspect the file system.
+    Do not assume any filenames exist before listing them.
+    Once you know the answer, reply with only the file content.
+    """,
     messages: [
       .user(
         .init(
@@ -126,19 +118,24 @@ private func assertToolLoop(for flavor: FlavorUnderTest) async throws {
               .init(
                 text: "Tell me the content of the only file whose filename is not a prime"
               )
-            )
+            ),
           ]
         )
-      )
+      ),
     ],
     tools: [Tool.ls, Tool.read]
   )
   flavor.configure(&input)
 
+  let recordingContext = try IntegrationTestRecordingContext(
+    testName: testName,
+    sourceFilePath: sourceFilePath
+  )
+
   let result = try await withDependencies {
-    $0.fetch = .urlSession(URLSession(configuration: .ephemeral))
+    $0.fetch = recordingContext.fetchClient
   } operation: {
-    try await toolLoop(input: input, target: try flavor.modelTarget, fileSystem: fileSystem)
+    try await toolLoop(input: input, target: flavor.modelTarget, fileSystem: fileSystem)
   }
 
   #expect(result.executedToolNames.contains("ls"))
@@ -162,7 +159,7 @@ private func toolLoop(
   var executedToolNames: [String] = []
   var readPaths: [String] = []
 
-  for _ in 1...8 {
+  for _ in 1 ... 8 {
     let stream = try await LLM.stream(input, target: target)
 
     for try await _ in stream {}
@@ -211,7 +208,7 @@ private struct DictionaryFileSystem {
         toolCallID: toolCall.id,
         toolName: toolCall.name,
         content: [
-          .text(.init(text: self.files.keys.sorted().joined(separator: "\n")))
+          .text(.init(text: files.keys.sorted().joined(separator: "\n"))),
         ]
       )
 
@@ -221,7 +218,7 @@ private struct DictionaryFileSystem {
           toolCallID: toolCall.id,
           toolName: toolCall.name,
           content: [
-            .text(.init(text: "Missing required string argument: path"))
+            .text(.init(text: "Missing required string argument: path")),
           ],
           isError: true
         )
@@ -229,12 +226,12 @@ private struct DictionaryFileSystem {
 
       readPaths.append(path)
 
-      guard let content = self.files[path] else {
+      guard let content = files[path] else {
         return ToolResultMessage(
           toolCallID: toolCall.id,
           toolName: toolCall.name,
           content: [
-            .text(.init(text: "No such file: \(path)"))
+            .text(.init(text: "No such file: \(path)")),
           ],
           isError: true
         )
@@ -244,7 +241,7 @@ private struct DictionaryFileSystem {
         toolCallID: toolCall.id,
         toolName: toolCall.name,
         content: [
-          .text(.init(text: content))
+          .text(.init(text: content)),
         ]
       )
 
@@ -253,7 +250,7 @@ private struct DictionaryFileSystem {
         toolCallID: toolCall.id,
         toolName: toolCall.name,
         content: [
-          .text(.init(text: "Unsupported tool: \(toolCall.name)"))
+          .text(.init(text: "Unsupported tool: \(toolCall.name)")),
         ],
         isError: true
       )
@@ -295,10 +292,10 @@ private extension Tool {
         "path": .object([
           "type": .string("string"),
           "description": .string("The file name to read, such as 9.txt."),
-        ])
+        ]),
       ]),
       "required": .array([
-        .string("path")
+        .string("path"),
       ]),
       "additionalProperties": .bool(false),
     ])
