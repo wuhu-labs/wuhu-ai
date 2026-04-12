@@ -15,14 +15,16 @@ private let recordingFileExtension = "llm-recording.json"
 
 struct IntegrationTestRecordingContext {
   let testName: String
+  let modelName: String
   let sourceFilePath: String
   private let mode: Mode
 
   private let state = RecordingState()
   private let liveFetch: FetchClient?
 
-  init(testName: String, sourceFilePath: StaticString = #filePath) throws {
+  init(testName: String, modelName: String, sourceFilePath: StaticString = #filePath) throws {
     self.testName = testName
+    self.modelName = modelName
     self.sourceFilePath = "\(sourceFilePath)"
     self.mode = Mode.current
 
@@ -78,16 +80,19 @@ struct IntegrationTestRecordingContext {
 
   private func recordingURL(for requestID: String) throws -> URL {
     let sourceURL = URL(fileURLWithPath: self.sourceFilePath)
-    let recordingsDirectory = sourceURL.deletingLastPathComponent().appendingPathComponent("Recordings", isDirectory: true)
+    let recordingsDirectory = sourceURL
+      .deletingLastPathComponent()
+      .appendingPathComponent("Recordings", isDirectory: true)
+      .appendingPathComponent(self.testName, isDirectory: true)
+      .appendingPathComponent(self.modelName, isDirectory: true)
     try FileManager.default.createDirectory(
       at: recordingsDirectory,
       withIntermediateDirectories: true,
       attributes: nil
     )
 
-    let fileName = sourceURL.deletingPathExtension().lastPathComponent
     return recordingsDirectory.appendingPathComponent(
-      "\(fileName).\(self.testName).\(requestID).\(recordingFileExtension)",
+      "\(requestID).\(recordingFileExtension)",
       isDirectory: false
     )
   }

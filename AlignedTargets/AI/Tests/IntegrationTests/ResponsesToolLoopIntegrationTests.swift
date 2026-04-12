@@ -1,97 +1,23 @@
 import AI
 import AICore
 import Dependencies
-import FlavorAnthropicMessages
-import FlavorCompletions
-import FlavorResponses
 import Foundation
 import JSONUtilities
 import Testing
 
 struct ToolLoopIntegrationTests {
-  @Test("Responses flavor can discover the secret via ls/read tools", .timeLimit(.minutes(3)))
-  func responsesToolLoop() async throws {
-    try await assertToolLoop(for: .responses, testName: "responsesToolLoop")
-  }
-
-  @Test("Anthropic Messages flavor can discover the secret via ls/read tools", .timeLimit(.minutes(3)))
-  func anthropicMessagesToolLoop() async throws {
-    try await assertToolLoop(for: .anthropicMessages, testName: "anthropicMessagesToolLoop")
-  }
-
-  @Test("Completions flavor can discover the secret via ls/read tools", .timeLimit(.minutes(3)))
-  func completionsToolLoop() async throws {
-    try await assertToolLoop(for: .completions, testName: "completionsToolLoop")
-  }
-}
-
-enum FlavorUnderTest {
-  case responses
-  case anthropicMessages
-  case completions
-
-  var modelTarget: ModelTarget {
-    switch self {
-    case .responses:
-      return ModelTarget(
-        model: .responses(id: "gpt-5.4"),
-        sensitiveHeaders: [
-          "Authorization": "Bearer \(apiKey)",
-        ]
-      )
-
-    case .anthropicMessages:
-      return ModelTarget(
-        model: .anthropicMessages(id: "claude-opus-4-5-20251101"),
-        headers: [
-          "anthropic-version": "2023-06-01",
-        ],
-        sensitiveHeaders: [
-          "x-api-key": apiKey,
-        ]
-      )
-
-    case .completions:
-      return ModelTarget(
-        model: .completions(
-          id: "gpt-5.4",
-          baseURL: URL(string: "https://api.openai.com/v1")!
-        ),
-        sensitiveHeaders: [
-          "Authorization": "Bearer \(apiKey)",
-        ]
-      )
-    }
-  }
-
-  var apiKey: String {
-    switch self {
-    case .responses, .completions:
-      return "abc123"
-
-    case .anthropicMessages:
-      return "abc123"
-    }
-  }
-
-  func configure(_ input: inout Input) {
-    switch self {
-    case .responses:
-      input.options.responses.reasoning = .effort(.minimal)
-      input.options.responses.store = false
-
-    case .anthropicMessages:
-      break
-
-    case .completions:
-      input.options.completions.store = false
-      input.options.completions.toolChoice = .automatic
-    }
+  @Test(
+    "Smoke model can discover the secret via ls/read tools",
+    .timeLimit(.minutes(3)),
+    arguments: CommonCombos.smokeModels
+  )
+  func toolLoop(combo: CommonCombos) async throws {
+    try await assertToolLoop(for: combo, testName: "tool-loop")
   }
 }
 
 private func assertToolLoop(
-  for flavor: FlavorUnderTest,
+  for combo: CommonCombos,
   testName: String,
   sourceFilePath: StaticString = #filePath
 ) async throws {
@@ -125,17 +51,18 @@ private func assertToolLoop(
     ],
     tools: [Tool.ls, Tool.read]
   )
-  flavor.configure(&input)
+  combo.configure(&input)
 
   let recordingContext = try IntegrationTestRecordingContext(
     testName: testName,
+    modelName: combo.modelName,
     sourceFilePath: sourceFilePath
   )
 
   let result = try await withDependencies {
     $0.fetch = recordingContext.fetchClient
   } operation: {
-    try await toolLoop(input: input, target: flavor.modelTarget, fileSystem: fileSystem)
+    try await toolLoop(input: input, target: combo.modelTarget, fileSystem: fileSystem)
   }
 
   #expect(result.executedToolNames.contains("ls"))
