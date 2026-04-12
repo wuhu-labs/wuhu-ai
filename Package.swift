@@ -93,6 +93,7 @@ let package = Package(
         "IntegrationTests/llm-forward-proxy.py",
         "IntegrationTests/llm-forward-proxy.config.sample.json",
         "IntegrationTests/llm-forward-proxy.config.json",
+        "IntegrationTests/image-test.jpg",
       ]
     ),
     .testTarget(

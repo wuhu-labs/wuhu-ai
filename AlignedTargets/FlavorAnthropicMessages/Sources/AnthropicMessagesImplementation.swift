@@ -162,15 +162,34 @@ private func encodeMessages(_ messages: [Message]) throws -> [JSONValue] {
       .joined(separator: "\n")
       .trimmingCharacters(in: .whitespacesAndNewlines)
 
-      if !text.isEmpty {
+      let imageBlocks = try user.content.compactMap { part -> JSONValue? in
+        guard case let .media(media) = part, media.kind == .image else { return nil }
+        return try encodeAnthropicImageBlock(media)
+      }
+
+      if imageBlocks.isEmpty {
+        if !text.isEmpty {
+          encoded.append(.object([
+            "role": .string("user"),
+            "content": .array([
+              .object([
+                "type": .string("text"),
+                "text": .string(text),
+              ])
+            ]),
+          ]))
+        }
+      } else {
+        var contentBlocks: [JSONValue] = [
+          .object([
+            "type": .string("text"),
+            "text": .string(text.isEmpty ? "(see attached image)" : text),
+          ])
+        ]
+        contentBlocks.append(contentsOf: imageBlocks)
         encoded.append(.object([
           "role": .string("user"),
-          "content": .array([
-            .object([
-              "type": .string("text"),
-              "text": .string(text),
-            ])
-          ]),
+          "content": .array(contentBlocks),
         ]))
       }
       index += 1
@@ -218,12 +237,34 @@ private func encodeMessages(_ messages: [Message]) throws -> [JSONValue] {
         }
         .joined(separator: "\n")
 
-        results.append(.object([
-          "type": .string("tool_result"),
-          "tool_use_id": .string(toolResult.toolCallID),
-          "content": .string(text.isEmpty ? "(no output)" : text),
-          "is_error": .bool(toolResult.isError),
-        ]))
+        let imageBlocks = try toolResult.content.compactMap { part -> JSONValue? in
+          guard case let .media(media) = part, media.kind == .image else { return nil }
+          return try encodeAnthropicImageBlock(media)
+        }
+
+        if imageBlocks.isEmpty {
+          results.append(.object([
+            "type": .string("tool_result"),
+            "tool_use_id": .string(toolResult.toolCallID),
+            "content": .string(text.isEmpty ? "(no output)" : text),
+            "is_error": .bool(toolResult.isError),
+          ]))
+        } else {
+          var contentBlocks: [JSONValue] = []
+          if !text.isEmpty {
+            contentBlocks.append(.object([
+              "type": .string("text"),
+              "text": .string(text),
+            ]))
+          }
+          contentBlocks.append(contentsOf: imageBlocks)
+          results.append(.object([
+            "type": .string("tool_result"),
+            "tool_use_id": .string(toolResult.toolCallID),
+            "content": .array(contentBlocks),
+            "is_error": .bool(toolResult.isError),
+          ]))
+        }
 
         index += 1
       }
@@ -238,6 +279,26 @@ private func encodeMessages(_ messages: [Message]) throws -> [JSONValue] {
   }
 
   return encoded
+}
+
+private func encodeAnthropicImageBlock(_ media: MediaPart) throws -> JSONValue {
+  let base64Data: String = switch media.source {
+  case let .data(data):
+    data.base64EncodedString()
+  case .remoteURL:
+    throw AIError.unimplemented("AnthropicMessages image remoteURL is not supported")
+  case .fileReference:
+    throw AIError.unimplemented("AnthropicMessages image fileReference is not supported")
+  }
+
+  return .object([
+    "type": .string("image"),
+    "source": .object([
+      "type": .string("base64"),
+      "media_type": .string(media.mimeType),
+      "data": .string(base64Data),
+    ]),
+  ])
 }
 
 private func anthropicStopReason(from value: String?) -> StopReason {

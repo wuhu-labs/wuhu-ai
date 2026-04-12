@@ -91,7 +91,7 @@ extension Completions {
         "content": .string(instructions),
       ]))
     }
-    messages.append(contentsOf: encodeMessages(input.messages))
+    messages.append(contentsOf: try encodeMessages(input.messages))
 
     var body: [String: JSONValue] = [
       "model": .string(model.id),
@@ -195,67 +195,145 @@ extension Completions {
   }
 }
 
-private func encodeMessages(_ messages: [Message]) -> [JSONValue] {
-  messages.compactMap { message in
+private func encodeMessages(_ messages: [Message]) throws -> [JSONValue] {
+  try messages.flatMap { message in
     switch message {
     case let .user(user):
-      let text = user.content.compactMap { part -> String? in
-        guard case let .text(text) = part else { return nil }
-        return text.text
-      }
-      .joined(separator: "\n")
-      .trimmingCharacters(in: .whitespacesAndNewlines)
+      return try encodeUserMessage(user)
+    case let .assistant(assistant):
+      return encodeAssistantMessage(assistant)
+    case let .toolResult(toolResult):
+      return try encodeToolResult(toolResult)
+    }
+  }
+}
 
-      guard !text.isEmpty else { return nil }
-      return .object([
+private func encodeUserMessage(_ user: UserMessage) throws -> [JSONValue] {
+  let text = user.content.compactMap { part -> String? in
+    guard case let .text(text) = part else { return nil }
+    return text.text
+  }
+  .joined(separator: "\n")
+  .trimmingCharacters(in: .whitespacesAndNewlines)
+
+  let imageParts = try user.content.compactMap { part -> JSONValue? in
+    guard case let .media(media) = part, media.kind == .image else { return nil }
+    return try encodeImagePart(media)
+  }
+
+  if imageParts.isEmpty {
+    guard !text.isEmpty else { return [] }
+    return [
+      .object([
         "role": .string("user"),
         "content": .string(text),
       ])
+    ]
+  }
 
-    case let .assistant(assistant):
-      let text = assistant.items.compactMap { item -> String? in
-        guard case let .text(text) = item else { return nil }
-        let trimmed = text.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
-      }
-      .joined(separator: "\n")
+  var content: [JSONValue] = []
+  if !text.isEmpty {
+    content.append(.object([
+      "type": .string("text"),
+      "text": .string(text),
+    ]))
+  }
+  content.append(contentsOf: imageParts)
 
-      let toolCalls = assistant.items.compactMap { item -> JSONValue? in
-        guard case let .toolCall(toolCall) = item else { return nil }
-        return .object([
-          "id": .string(toolCall.id),
-          "type": .string("function"),
-          "function": .object([
-            "name": .string(toolCall.name),
-            "arguments": .string(jsonString(toolCall.arguments)),
-          ]),
+  return [
+    .object([
+      "role": .string("user"),
+      "content": .array(content),
+    ])
+  ]
+}
+
+private func encodeAssistantMessage(_ assistant: AssistantMessage) -> [JSONValue] {
+  let text = assistant.items.compactMap { item -> String? in
+    guard case let .text(text) = item else { return nil }
+    let trimmed = text.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmed.isEmpty ? nil : trimmed
+  }
+  .joined(separator: "\n")
+
+  let toolCalls = assistant.items.compactMap { item -> JSONValue? in
+    guard case let .toolCall(toolCall) = item else { return nil }
+    return .object([
+      "id": .string(toolCall.id),
+      "type": .string("function"),
+      "function": .object([
+        "name": .string(toolCall.name),
+        "arguments": .string(jsonString(toolCall.arguments)),
+      ]),
+    ])
+  }
+
+  guard !text.isEmpty || !toolCalls.isEmpty else { return [] }
+  var object: [String: JSONValue] = [
+    "role": .string("assistant"),
+    "content": text.isEmpty ? .null : .string(text),
+  ]
+  if !toolCalls.isEmpty {
+    object["tool_calls"] = .array(toolCalls)
+  }
+  return [.object(object)]
+}
+
+private func encodeToolResult(_ toolResult: ToolResultMessage) throws -> [JSONValue] {
+  let text = toolResult.content.compactMap { part -> String? in
+    guard case let .text(text) = part else { return nil }
+    return text.text
+  }
+  .joined(separator: "\n")
+
+  var messages: [JSONValue] = [
+    .object([
+      "role": .string("tool"),
+      "tool_call_id": .string(toolResult.toolCallID),
+      "content": .string(text.isEmpty ? "(no output)" : text),
+    ])
+  ]
+
+  let imageParts = try toolResult.content.compactMap { part -> JSONValue? in
+    guard case let .media(media) = part, media.kind == .image else { return nil }
+    return try encodeImagePart(media)
+  }
+
+  if !imageParts.isEmpty {
+    messages.append(.object([
+      "role": .string("user"),
+      "content": .array([
+        .object([
+          "type": .string("text"),
+          "text": .string("Attached media from tool result:"),
         ])
-      }
+      ] + imageParts),
+    ]))
+  }
 
-      guard !text.isEmpty || !toolCalls.isEmpty else { return nil }
-      var object: [String: JSONValue] = [
-        "role": .string("assistant"),
-        "content": text.isEmpty ? .null : .string(text),
-      ]
-      if !toolCalls.isEmpty {
-        object["tool_calls"] = .array(toolCalls)
-      }
-      return .object(object)
+  return messages
+}
 
-    case let .toolResult(toolResult):
-      let text = toolResult.content.compactMap { part -> String? in
-        guard case let .text(text) = part else { return nil }
-        return text.text
-      }
-      .joined(separator: "\n")
-
-      return .object([
-        "role": .string("tool"),
-        "tool_call_id": .string(toolResult.toolCallID),
-        "content": .string(text.isEmpty ? "(no output)" : text),
-      ])
+private func encodeImagePart(_ media: MediaPart) throws -> JSONValue {
+  let url: String = switch media.source {
+  case let .data(data):
+    "data:\(media.mimeType);base64,\(data.base64EncodedString())"
+  case let .remoteURL(remoteURL):
+    remoteURL.absoluteString
+  case let .fileReference(reference):
+    if let remoteURL = reference.url {
+      remoteURL.absoluteString
+    } else {
+      throw AIError.unimplemented("Completions image fileReference requires a URL")
     }
   }
+
+  return .object([
+    "type": .string("image_url"),
+    "image_url": .object([
+      "url": .string(url),
+    ]),
+  ])
 }
 
 private func encodeToolChoice(_ toolChoice: Completions.ToolChoice) -> JSONValue {

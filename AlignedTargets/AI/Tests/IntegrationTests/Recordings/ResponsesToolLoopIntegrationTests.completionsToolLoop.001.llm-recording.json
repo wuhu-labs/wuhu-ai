@@ -2,7 +2,7 @@
   "request" : {
     "body" : {
       "kind" : "utf8",
-      "text" : "{\"messages\":[{\"content\":\"You are a careful file-inspecting agent.\\nYou must use the provided tools to inspect the file system.\\nDo not assume any filenames exist before listing them.\\nOnce you know the answer, reply with only the file content.\",\"role\":\"system\"},{\"content\":\"Tell me the content of the only file whose filename is not a prime\",\"role\":\"user\"}],\"model\":\"gpt-4.1\",\"store\":false,\"stream\":false,\"tool_choice\":\"auto\",\"tools\":[{\"function\":{\"description\":\"List files in the root directory.\",\"name\":\"ls\",\"parameters\":{\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"},\"strict\":false},\"type\":\"function\"},{\"function\":{\"description\":\"Read the contents of a file in the root directory.\",\"name\":\"read\",\"parameters\":{\"additionalProperties\":false,\"properties\":{\"path\":{\"description\":\"The file name to read, such as 9.txt.\",\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"strict\":false},\"type\":\"function\"}]}"
+      "text" : "{\"messages\":[{\"content\":\"You are a careful file-inspecting agent.\\nYou must use the provided tools to inspect the file system.\\nDo not assume any filenames exist before listing them.\\nOnce you know the answer, reply with only the file content.\",\"role\":\"system\"},{\"content\":\"Tell me the content of the only file whose filename is not a prime\",\"role\":\"user\"}],\"model\":\"gpt-5.4\",\"store\":false,\"stream\":false,\"tool_choice\":\"auto\",\"tools\":[{\"function\":{\"description\":\"List files in the root directory.\",\"name\":\"ls\",\"parameters\":{\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"},\"strict\":false},\"type\":\"function\"},{\"function\":{\"description\":\"Read the contents of a file in the root directory.\",\"name\":\"read\",\"parameters\":{\"additionalProperties\":false,\"properties\":{\"path\":{\"description\":\"The file name to read, such as 9.txt.\",\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"strict\":false},\"type\":\"function\"}]}"
     },
     "headers" : [
       {
@@ -24,7 +24,7 @@
   "response" : {
     "body" : {
       "kind" : "utf8",
-      "text" : "{\n  \"id\": \"chatcmpl-DTmaYXdb6rYWpzVsQzuZgCvBDUpmK\",\n  \"object\": \"chat.completion\",\n  \"created\": 1775990658,\n  \"model\": \"gpt-4.1-2025-04-14\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": null,\n        \"tool_calls\": [\n          {\n            \"id\": \"call_9R8a00ZAJbLsoxQpfLOMfn46\",\n            \"type\": \"function\",\n            \"function\": {\n              \"name\": \"ls\",\n              \"arguments\": \"{}\"\n            }\n          }\n        ],\n        \"refusal\": null,\n        \"annotations\": []\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"tool_calls\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 132,\n    \"completion_tokens\": 10,\n    \"total_tokens\": 142,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_4538154366\"\n}\n"
+      "text" : "{\n  \"id\": \"chatcmpl-DTnFuTjufwm75YjHSzqOBVu0uSQn5\",\n  \"object\": \"chat.completion\",\n  \"created\": 1775993222,\n  \"model\": \"gpt-5.4-2026-03-05\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": null,\n        \"tool_calls\": [\n          {\n            \"id\": \"call_XwadvWcD2fgj2Ut174hJ9tMF\",\n            \"type\": \"function\",\n            \"function\": {\n              \"name\": \"ls\",\n              \"arguments\": \"{}\"\n            }\n          }\n        ],\n        \"refusal\": null,\n        \"annotations\": []\n      },\n      \"finish_reason\": \"tool_calls\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 216,\n    \"completion_tokens\": 13,\n    \"total_tokens\": 229,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": null\n}\n"
     },
     "headers" : [
       {
@@ -41,7 +41,7 @@
       },
       {
         "name" : "CF-Ray",
-        "value" : "9eb1a28d39b908ec-LAX"
+        "value" : "9eb1e122cdeb9e6a-SJC"
       },
       {
         "name" : "Connection",
@@ -53,7 +53,7 @@
       },
       {
         "name" : "Content-Length",
-        "value" : "492"
+        "value" : "466"
       },
       {
         "name" : "Content-Type",
@@ -61,7 +61,7 @@
       },
       {
         "name" : "Date",
-        "value" : "Sun, 12 Apr 2026 10:44:18 GMT, Sun, 12 Apr 2026 10:44:18 GMT"
+        "value" : "Sun, 12 Apr 2026 11:27:03 GMT, Sun, 12 Apr 2026 11:27:04 GMT"
       },
       {
         "name" : "openai-organization",
@@ -69,7 +69,7 @@
       },
       {
         "name" : "openai-processing-ms",
-        "value" : "402"
+        "value" : "1848"
       },
       {
         "name" : "openai-project",
@@ -85,7 +85,7 @@
       },
       {
         "name" : "Set-Cookie",
-        "value" : "__cf_bm=OYVS44V7TNXJBt4qmrZ5wQolcz14CRLf15Czu8BAwbM-1775990658.1166515-1.0.1.1-zYUGAWttUfnRG.xl8Os0M3X60m7nJLsHYrd76w1Zzekkowa6SHJoSddZpdffSvIk2nzAtGZPc6jlOFM7zs0NMvq2RugJZZwHIZqZTbvXmV9zKBoebcrMkNaIG4lNZLc0; HttpOnly; Secure; Path=\/; Domain=api.openai.com; Expires=Sun, 12 Apr 2026 11:14:18 GMT"
+        "value" : "__cf_bm=fQxK_4zDVIQbwXqZP1Uy4RfpCE.jLJ4MYO9wySGFqbU-1775993221.5671594-1.0.1.1-LfmMGr33Izz70UL62DfhFy9ldvFofqRw9bRjJpky.9u527QvcRnUXb7qicQL8JM_Q71G7G2CnlssPRQ9B1lwfJOsblWkznA9txNKrPoIOpxhts_XmWqv6Bg1apAwPrRc; HttpOnly; Secure; Path=\/; Domain=api.openai.com; Expires=Sun, 12 Apr 2026 11:57:04 GMT"
       },
       {
         "name" : "Strict-Transport-Security",
@@ -101,23 +101,23 @@
       },
       {
         "name" : "x-ratelimit-limit-requests",
-        "value" : "10000"
+        "value" : "15000"
       },
       {
         "name" : "x-ratelimit-limit-tokens",
-        "value" : "30000000"
+        "value" : "40000000"
       },
       {
         "name" : "x-ratelimit-remaining-requests",
-        "value" : "9999"
+        "value" : "14999"
       },
       {
         "name" : "x-ratelimit-remaining-tokens",
-        "value" : "29999926"
+        "value" : "39999926"
       },
       {
         "name" : "x-ratelimit-reset-requests",
-        "value" : "6ms"
+        "value" : "4ms"
       },
       {
         "name" : "x-ratelimit-reset-tokens",
@@ -125,7 +125,7 @@
       },
       {
         "name" : "x-request-id",
-        "value" : "req_03bcd6d55a7449cc9ca93c0e2bdae5a1"
+        "value" : "req_ebc83416391441d68841e8da4b9ff139"
       }
     ],
     "statusCode" : 200

@@ -2,7 +2,7 @@
   "request" : {
     "body" : {
       "kind" : "utf8",
-      "text" : "{\"messages\":[{\"content\":\"You are a careful file-inspecting agent.\\nYou must use the provided tools to inspect the file system.\\nDo not assume any filenames exist before listing them.\\nOnce you know the answer, reply with only the file content.\",\"role\":\"system\"},{\"content\":\"Tell me the content of the only file whose filename is not a prime\",\"role\":\"user\"},{\"content\":null,\"role\":\"assistant\",\"tool_calls\":[{\"function\":{\"arguments\":\"{}\",\"name\":\"ls\"},\"id\":\"call_9R8a00ZAJbLsoxQpfLOMfn46\",\"type\":\"function\"}]},{\"content\":\"3.txt\\n5.txt\\n7.txt\\n9.txt\",\"role\":\"tool\",\"tool_call_id\":\"call_9R8a00ZAJbLsoxQpfLOMfn46\"},{\"content\":null,\"role\":\"assistant\",\"tool_calls\":[{\"function\":{\"arguments\":\"{\\\"path\\\":\\\"9.txt\\\"}\",\"name\":\"read\"},\"id\":\"call_XeXeESwJJGBXT6HbjJvWtLZH\",\"type\":\"function\"}]},{\"content\":\"marigold-squid-4821\",\"role\":\"tool\",\"tool_call_id\":\"call_XeXeESwJJGBXT6HbjJvWtLZH\"}],\"model\":\"gpt-4.1\",\"store\":false,\"stream\":false,\"tool_choice\":\"auto\",\"tools\":[{\"function\":{\"description\":\"List files in the root directory.\",\"name\":\"ls\",\"parameters\":{\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"},\"strict\":false},\"type\":\"function\"},{\"function\":{\"description\":\"Read the contents of a file in the root directory.\",\"name\":\"read\",\"parameters\":{\"additionalProperties\":false,\"properties\":{\"path\":{\"description\":\"The file name to read, such as 9.txt.\",\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"strict\":false},\"type\":\"function\"}]}"
+      "text" : "{\"messages\":[{\"content\":\"You are a careful file-inspecting agent.\\nYou must use the provided tools to inspect the file system.\\nDo not assume any filenames exist before listing them.\\nOnce you know the answer, reply with only the file content.\",\"role\":\"system\"},{\"content\":\"Tell me the content of the only file whose filename is not a prime\",\"role\":\"user\"},{\"content\":null,\"role\":\"assistant\",\"tool_calls\":[{\"function\":{\"arguments\":\"{}\",\"name\":\"ls\"},\"id\":\"call_XwadvWcD2fgj2Ut174hJ9tMF\",\"type\":\"function\"}]},{\"content\":\"3.txt\\n5.txt\\n7.txt\\n9.txt\",\"role\":\"tool\",\"tool_call_id\":\"call_XwadvWcD2fgj2Ut174hJ9tMF\"},{\"content\":null,\"role\":\"assistant\",\"tool_calls\":[{\"function\":{\"arguments\":\"{\\\"path\\\":\\\"9.txt\\\"}\",\"name\":\"read\"},\"id\":\"call_68yBvnl2nMyOV3Y6sOJfF8WI\",\"type\":\"function\"}]},{\"content\":\"marigold-squid-4821\",\"role\":\"tool\",\"tool_call_id\":\"call_68yBvnl2nMyOV3Y6sOJfF8WI\"}],\"model\":\"gpt-5.4\",\"store\":false,\"stream\":false,\"tool_choice\":\"auto\",\"tools\":[{\"function\":{\"description\":\"List files in the root directory.\",\"name\":\"ls\",\"parameters\":{\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"},\"strict\":false},\"type\":\"function\"},{\"function\":{\"description\":\"Read the contents of a file in the root directory.\",\"name\":\"read\",\"parameters\":{\"additionalProperties\":false,\"properties\":{\"path\":{\"description\":\"The file name to read, such as 9.txt.\",\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"strict\":false},\"type\":\"function\"}]}"
     },
     "headers" : [
       {
@@ -24,7 +24,7 @@
   "response" : {
     "body" : {
       "kind" : "utf8",
-      "text" : "{\n  \"id\": \"chatcmpl-DTmabFD9Kz8fR0qOif4MgrkdUequw\",\n  \"object\": \"chat.completion\",\n  \"created\": 1775990661,\n  \"model\": \"gpt-4.1-2025-04-14\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"marigold-squid-4821\",\n        \"refusal\": null,\n        \"annotations\": []\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 189,\n    \"completion_tokens\": 9,\n    \"total_tokens\": 198,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_6673324b2d\"\n}\n"
+      "text" : "{\n  \"id\": \"chatcmpl-DTnFzF2xa4f1qdIX3kpbP7IX4ccI1\",\n  \"object\": \"chat.completion\",\n  \"created\": 1775993227,\n  \"model\": \"gpt-5.4-2026-03-05\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"marigold-squid-4821\",\n        \"refusal\": null,\n        \"annotations\": []\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 285,\n    \"completion_tokens\": 11,\n    \"total_tokens\": 296,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": null\n}\n"
     },
     "headers" : [
       {
@@ -41,7 +41,7 @@
       },
       {
         "name" : "CF-Ray",
-        "value" : "9eb1a2a08a4697d9-SJC"
+        "value" : "9eb1e14778fbad01-SJC"
       },
       {
         "name" : "Connection",
@@ -53,7 +53,7 @@
       },
       {
         "name" : "Content-Length",
-        "value" : "425"
+        "value" : "394"
       },
       {
         "name" : "Content-Type",
@@ -61,7 +61,7 @@
       },
       {
         "name" : "Date",
-        "value" : "Sun, 12 Apr 2026 10:44:21 GMT, Sun, 12 Apr 2026 10:44:21 GMT"
+        "value" : "Sun, 12 Apr 2026 11:27:07 GMT, Sun, 12 Apr 2026 11:27:08 GMT"
       },
       {
         "name" : "openai-organization",
@@ -69,7 +69,7 @@
       },
       {
         "name" : "openai-processing-ms",
-        "value" : "319"
+        "value" : "609"
       },
       {
         "name" : "openai-project",
@@ -85,7 +85,7 @@
       },
       {
         "name" : "Set-Cookie",
-        "value" : "__cf_bm=UXrLglBy7t6beO1czkxV6YJP2pO_w_3Vjd0_pPi3kAo-1775990661.2108884-1.0.1.1-v4UyulP9knqv2pGB6wsOlz5oAMtQwmy7nv64dISmNNkv3y3vm0A7brpbOTunALPAf0YC0JbSv.8geUS4ThCwz2pk.js3CrVKzSn5ywsf3psRVG3lMo9.ScD1jU6uXb4q; HttpOnly; Secure; Path=\/; Domain=api.openai.com; Expires=Sun, 12 Apr 2026 11:14:21 GMT"
+        "value" : "__cf_bm=_t14EJx9OY2HI4CwiINFGEjx38Vs1QG6pGUmXQYeKcA-1775993227.431805-1.0.1.1-KyxI.AEjyIgqTadgb0B6sh3lKZD4aPGjKEtVzp7sigpIl1tqjdX5srwvr6DABbj21s3YNUT2gB2KcA5WjAxfnQpkrvO1L5xAhGiOYlJUBXdQBSFUOPSKOD1P1JlOkF5i; HttpOnly; Secure; Path=\/; Domain=api.openai.com; Expires=Sun, 12 Apr 2026 11:57:08 GMT"
       },
       {
         "name" : "Strict-Transport-Security",
@@ -101,23 +101,23 @@
       },
       {
         "name" : "x-ratelimit-limit-requests",
-        "value" : "10000"
+        "value" : "15000"
       },
       {
         "name" : "x-ratelimit-limit-tokens",
-        "value" : "30000000"
+        "value" : "40000000"
       },
       {
         "name" : "x-ratelimit-remaining-requests",
-        "value" : "9999"
+        "value" : "14999"
       },
       {
         "name" : "x-ratelimit-remaining-tokens",
-        "value" : "29999912"
+        "value" : "39999912"
       },
       {
         "name" : "x-ratelimit-reset-requests",
-        "value" : "6ms"
+        "value" : "4ms"
       },
       {
         "name" : "x-ratelimit-reset-tokens",
@@ -125,7 +125,7 @@
       },
       {
         "name" : "x-request-id",
-        "value" : "req_03ac5b27df594bbb8bee2c350f71b3dd"
+        "value" : "req_65a37e66de0047e4afda665cf6880c76"
       }
     ],
     "statusCode" : 200
