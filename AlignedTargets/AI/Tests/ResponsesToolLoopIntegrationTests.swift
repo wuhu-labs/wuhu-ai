@@ -1,7 +1,6 @@
 import AI
 import AICore
 import Dependencies
-import Fetch
 import FetchURLSession
 import FlavorResponses
 import Foundation
@@ -10,13 +9,17 @@ import Testing
 
 @Suite(.serialized)
 struct ResponsesToolLoopIntegrationTests {
-  @Test("GPT-5.4 can read a file via streamed tool calling", .timeLimit(.minutes(3)))
-  func gpt54ReadsFileViaToolLoop() async throws {
+  @Test("GPT-5.4 can discover the secret via ls/read tools", .timeLimit(.minutes(3)))
+  func gpt54DiscoversSecretViaToolLoop() async throws {
     let apiKey = try #require(ProcessInfo.processInfo.environment["OPENAI_API_KEY"], "Set OPENAI_API_KEY before running this integration test.")
 
-    let targetFile = "/Users/selveskii/Developer/WinterTC/wuhu-umbrella/wuhu-ai/Tests/WuhuAITests/AnthropicToolLoopIntegrationTests.swift"
-    let expectedSecret = "marigold-squid-4821"
-    #expect(FileManager.default.fileExists(atPath: targetFile))
+    let secret = "marigold-squid-4821"
+    let fileSystem = DictionaryFileSystem(files: [
+      "3.txt": "prime",
+      "5.txt": "prime",
+      "7.txt": "prime",
+      "9.txt": secret,
+    ])
 
     let model = Model.responses(id: "gpt-5.4")
     let target = ModelTarget(
@@ -27,139 +30,197 @@ struct ResponsesToolLoopIntegrationTests {
     )
 
     var input = Input(
-      instructions: "You are a careful coding agent. You must use the provided tool to inspect files. Do not guess. Once you know the answer, reply with only the secret string.",
+      instructions: """
+        You are a careful file-inspecting agent.
+        You must use the provided tools to inspect the file system.
+        Do not assume any filenames exist before listing them.
+        Once you know the answer, reply with only the file content.
+        """,
       messages: [
         .user(
           .init(
             content: [
               .text(
                 .init(
-                  text: "What is the hard-coded secret string that appears in \(targetFile)? Use the provided tool.")
+                  text: "Tell me the content of the only file whose filename is not a prime"
+                )
               )
             ]
           )
         )
       ],
-      tools: [Tool.readFile]
+      tools: [Tool.ls, Tool.read]
     )
     input.options.responses.reasoning = Responses.Reasoning.effort(.minimal)
     input.options.responses.store = false
 
-    let answer = try await withDependencies {
+    let result = try await withDependencies {
       $0.fetch = .urlSession(URLSession(configuration: .ephemeral))
     } operation: {
-      try await toolLoop(input: input, target: target, expectedReadPath: targetFile)
+      try await toolLoop(input: input, target: target, fileSystem: fileSystem)
     }
 
-    #expect(answer == expectedSecret)
+    #expect(result.executedToolNames.contains("ls"))
+    #expect(result.executedToolNames.contains("read"))
+    #expect(result.readPaths.contains("9.txt"))
+    #expect(result.answer == secret)
   }
 }
 
-private func toolLoop(input initialInput: Input, target: ModelTarget, expectedReadPath: String) async throws -> String {
-  var input = initialInput
-  var didSeeToolCallEvent = false
-  var didReadExpectedFile = false
+private struct ToolLoopResult {
+  var answer: String
+  var executedToolNames: [String]
+  var readPaths: [String]
+}
 
-  for _ in 1...6 {
+private func toolLoop(
+  input initialInput: Input,
+  target: ModelTarget,
+  fileSystem: DictionaryFileSystem
+) async throws -> ToolLoopResult {
+  var input = initialInput
+  var executedToolNames: [String] = []
+  var readPaths: [String] = []
+
+  for _ in 1...8 {
     let stream = try await LLM.stream(input, target: target)
 
-    for try await event in stream {
-      if case .toolCallStart = event {
-        didSeeToolCallEvent = true
-      }
-    }
+    for try await _ in stream {}
 
     let output = try await stream.result()
-
     let toolCalls = output.message.items.compactMap { item -> ToolCall? in
       guard case let .toolCall(toolCall) = item else { return nil }
       return toolCall
     }
 
     if toolCalls.isEmpty {
-      let text = output.message.items.compactMap { item -> String? in
+      let answer = output.message.items.compactMap { item -> String? in
         guard case let .text(text) = item else { return nil }
         return text.text
       }
       .joined(separator: "\n")
-      .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+      .trimmingCharacters(in: .whitespacesAndNewlines)
 
-      #expect(didSeeToolCallEvent)
-      #expect(didReadExpectedFile)
-      return text
+      return ToolLoopResult(
+        answer: answer,
+        executedToolNames: executedToolNames,
+        readPaths: readPaths
+      )
     }
 
     input.messages.append(.assistant(output.message))
 
     for toolCall in toolCalls {
-      let toolResult = try executeToolCall(toolCall, expectedReadPath: expectedReadPath, didReadExpectedFile: &didReadExpectedFile)
-      input.messages.append(.toolResult(toolResult))
+      executedToolNames.append(toolCall.name)
+      let result = fileSystem.execute(toolCall, readPaths: &readPaths)
+      input.messages.append(.toolResult(result))
     }
   }
 
   Issue.record("Tool loop exhausted before the model produced a final answer.")
-  return ""
+  return ToolLoopResult(answer: "", executedToolNames: executedToolNames, readPaths: readPaths)
 }
 
-private func executeToolCall(
-  _ toolCall: ToolCall,
-  expectedReadPath: String,
-  didReadExpectedFile: inout Bool
-) throws -> ToolResultMessage {
-  switch toolCall.name {
-  case "read_file":
-    guard let path = toolCall.arguments.object?["path"]?.stringValue else {
+private struct DictionaryFileSystem {
+  let files: [String: String]
+
+  func execute(_ toolCall: ToolCall, readPaths: inout [String]) -> ToolResultMessage {
+    switch toolCall.name {
+    case "ls":
       return ToolResultMessage(
         toolCallID: toolCall.id,
         toolName: toolCall.name,
         content: [
-          .text(.init(text: "Missing required string argument: path"))
+          .text(.init(text: self.files.keys.sorted().joined(separator: "\n")))
+        ]
+      )
+
+    case "read":
+      guard let path = normalizedPath(from: toolCall.arguments) else {
+        return ToolResultMessage(
+          toolCallID: toolCall.id,
+          toolName: toolCall.name,
+          content: [
+            .text(.init(text: "Missing required string argument: path"))
+          ],
+          isError: true
+        )
+      }
+
+      readPaths.append(path)
+
+      guard let content = self.files[path] else {
+        return ToolResultMessage(
+          toolCallID: toolCall.id,
+          toolName: toolCall.name,
+          content: [
+            .text(.init(text: "No such file: \(path)"))
+          ],
+          isError: true
+        )
+      }
+
+      return ToolResultMessage(
+        toolCallID: toolCall.id,
+        toolName: toolCall.name,
+        content: [
+          .text(.init(text: content))
+        ]
+      )
+
+    default:
+      return ToolResultMessage(
+        toolCallID: toolCall.id,
+        toolName: toolCall.name,
+        content: [
+          .text(.init(text: "Unsupported tool: \(toolCall.name)"))
         ],
         isError: true
       )
     }
+  }
 
-    let content = try String(contentsOfFile: path, encoding: .utf8)
-    if path == expectedReadPath {
-      didReadExpectedFile = true
+  private func normalizedPath(from arguments: JSONValue) -> String? {
+    guard let rawPath = arguments.object?["path"]?.stringValue else { return nil }
+
+    var path = rawPath
+    while path.hasPrefix("./") {
+      path.removeFirst(2)
+    }
+    while path.hasPrefix("/") {
+      path.removeFirst()
     }
 
-    return ToolResultMessage(
-      toolCallID: toolCall.id,
-      toolName: toolCall.name,
-      content: [
-        .text(.init(text: content))
-      ]
-    )
-
-  default:
-    return ToolResultMessage(
-      toolCallID: toolCall.id,
-      toolName: toolCall.name,
-      content: [
-        .text(.init(text: "Unsupported tool: \(toolCall.name)"))
-      ],
-      isError: true
-    )
+    return path
   }
 }
 
 private extension Tool {
-  static let readFile = Tool(
-    name: "read_file",
-    description: "Read the UTF-8 contents of a file at an absolute path.",
-    inputSchema: JSONValue.object([
-      "type": JSONValue.string("object"),
-      "properties": JSONValue.object([
-        "path": JSONValue.object([
-          "type": JSONValue.string("string"),
-          "description": JSONValue.string("Absolute file path to read.")
+  static let ls = Tool(
+    name: "ls",
+    description: "List files in the root directory.",
+    inputSchema: .object([
+      "type": .string("object"),
+      "properties": .object([:]),
+      "additionalProperties": .bool(false),
+    ])
+  )
+
+  static let read = Tool(
+    name: "read",
+    description: "Read the contents of a file in the root directory.",
+    inputSchema: .object([
+      "type": .string("object"),
+      "properties": .object([
+        "path": .object([
+          "type": .string("string"),
+          "description": .string("The file name to read, such as 9.txt."),
         ])
       ]),
-      "required": JSONValue.array([
-        JSONValue.string("path")
+      "required": .array([
+        .string("path")
       ]),
-      "additionalProperties": JSONValue.bool(false)
+      "additionalProperties": .bool(false),
     ])
   )
 }
