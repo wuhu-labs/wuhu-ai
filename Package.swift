@@ -8,12 +8,63 @@ let package = Package(
     .iOS(.v16),
   ],
   products: [
+    .library(name: "AI", targets: ["AI"]),
+    .library(name: "AICore", targets: ["AICore"]),
+    .library(name: "JSONUtilities", targets: ["JSONUtilities"]),
+    .library(name: "FlavorResponses", targets: ["FlavorResponses"]),
+    .library(name: "FlavorCompletions", targets: ["FlavorCompletions"]),
+    .library(name: "FlavorAnthropicMessages", targets: ["FlavorAnthropicMessages"]),
     .library(name: "WuhuAI", targets: ["WuhuAI"]),
   ],
   dependencies: [
     .package(url: "https://github.com/wuhu-labs/wuhu-fetch", .upToNextMinor(from: "0.2.0")),
   ],
   targets: [
+    .target(
+      name: "JSONUtilities",
+      path: "AlignedTargets/JSONUtilities/Sources"
+    ),
+    .target(
+      name: "AICore",
+      dependencies: [
+        "JSONUtilities",
+      ],
+      path: "AlignedTargets/AICore/Sources"
+    ),
+    .target(
+      name: "FlavorResponses",
+      dependencies: [
+        "AICore",
+        "JSONUtilities",
+      ],
+      path: "AlignedTargets/FlavorResponses/Sources"
+    ),
+    .target(
+      name: "FlavorCompletions",
+      dependencies: [
+        "AICore",
+        "JSONUtilities",
+      ],
+      path: "AlignedTargets/FlavorCompletions/Sources"
+    ),
+    .target(
+      name: "FlavorAnthropicMessages",
+      dependencies: [
+        "AICore",
+        "JSONUtilities",
+      ],
+      path: "AlignedTargets/FlavorAnthropicMessages/Sources"
+    ),
+    .target(
+      name: "AI",
+      dependencies: [
+        "AICore",
+        "FlavorResponses",
+        "FlavorCompletions",
+        "FlavorAnthropicMessages",
+      ],
+      path: "AlignedTargets/AI/Sources"
+    ),
     .target(
       name: "WuhuAI",
       dependencies: [
