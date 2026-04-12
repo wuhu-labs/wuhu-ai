@@ -18,6 +18,7 @@ let package = Package(
   ],
   dependencies: [
     .package(url: "https://github.com/wuhu-labs/wuhu-fetch", .upToNextMinor(from: "0.2.0")),
+    .package(url: "https://github.com/pointfreeco/swift-dependencies.git", from: "1.11.0"),
   ],
   targets: [
     .target(
@@ -36,6 +37,9 @@ let package = Package(
       dependencies: [
         "AICore",
         "JSONUtilities",
+        .product(name: "Dependencies", package: "swift-dependencies"),
+        .product(name: "Fetch", package: "wuhu-fetch"),
+        .product(name: "FetchSSE", package: "wuhu-fetch"),
       ],
       path: "AlignedTargets/FlavorResponses/Sources"
     ),
@@ -72,6 +76,14 @@ let package = Package(
         .product(name: "FetchSSE", package: "wuhu-fetch"),
       ],
       path: "Sources/WuhuAI"
+    ),
+    .testTarget(
+      name: "AITests",
+      dependencies: [
+        "AI",
+        .product(name: "FetchURLSession", package: "wuhu-fetch"),
+      ],
+      path: "AlignedTargets/AI/Tests"
     ),
     .testTarget(
       name: "WuhuAITests",

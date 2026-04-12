@@ -52,44 +52,42 @@ public enum Responses {
   }
 
   public struct Parser: Sendable {
+    var model: Model
+    var output: Output
+    var didStart = false
+    var currentTextIndex: Int?
+    var currentReasoningIndex: Int?
+    var currentToolCallIndex: Int?
+    var currentToolCallArgumentsBuffer = ""
+
     public init(model: Model) {
       self.model = model
+      self.output = Output(model: model, message: AssistantMessage())
     }
 
     public mutating func consume(_ event: JSONValue) throws -> [OutputEvent] {
-      _ = event
-      throw AIError.unimplemented("Responses.Parser.consume")
+      try self._consume(event)
     }
 
     public mutating func finish() throws -> Output {
-      throw AIError.unimplemented("Responses.Parser.finish")
+      try self._finish()
     }
-
-    var model: Model
   }
 
-  public static func infer(_ input: Input, model: Model) async throws -> Output {
-    _ = input
-    try ensureFlavor(model)
-    throw AIError.unimplemented("Responses.infer")
+  public static func infer(_ input: Input, target: ModelTarget) async throws -> Output {
+    try await ResponsesRuntime().infer(input, target: target)
   }
 
-  public static func stream(_ input: Input, model: Model) async throws -> AICore.OutputStream {
-    _ = input
-    try ensureFlavor(model)
-    throw AIError.unimplemented("Responses.stream")
+  public static func stream(_ input: Input, target: ModelTarget) async throws -> AICore.OutputStream {
+    try await ResponsesRuntime().stream(input, target: target)
   }
 
   public static func encode(_ input: Input, model: Model) throws -> JSONValue {
-    _ = input
-    try ensureFlavor(model)
-    throw AIError.unimplemented("Responses.encode")
+    try _encode(input, model: model)
   }
 
   public static func decode(_ response: JSONValue, model: Model) throws -> Output {
-    _ = response
-    try ensureFlavor(model)
-    throw AIError.unimplemented("Responses.decode")
+    try _decode(response, model: model)
   }
 
   public static func makeStreamingParser(model: Model) -> Parser {
@@ -100,6 +98,10 @@ public enum Responses {
     guard model.flavor == .responses else {
       throw AIError.unsupportedModelFlavor(expected: .responses, actual: model.flavor)
     }
+  }
+
+  static func ensureFlavor(_ target: ModelTarget) throws {
+    try ensureFlavor(target.model)
   }
 }
 
@@ -134,7 +136,8 @@ public extension Model {
     Model(
       id: id,
       flavor: .responses,
-      endpoint: .init(baseURL: baseURL, defaultHeaders: defaultHeaders),
+      endpoint: .init(baseURL: baseURL),
+      defaultHeaders: defaultHeaders,
       capabilities: capabilities,
       limits: limits
     )

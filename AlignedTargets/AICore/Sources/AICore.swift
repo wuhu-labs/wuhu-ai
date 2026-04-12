@@ -12,6 +12,7 @@ public struct Model: Sendable, Hashable {
   public var id: String
   public var flavor: APIFlavor
   public var endpoint: Endpoint
+  public var defaultHeaders: [String: String]
   public var capabilities: Capabilities
   public var limits: Limits
 
@@ -19,24 +20,40 @@ public struct Model: Sendable, Hashable {
     id: String,
     flavor: APIFlavor,
     endpoint: Endpoint,
+    defaultHeaders: [String: String] = [:],
     capabilities: Capabilities,
     limits: Limits = .init()
   ) {
     self.id = id
     self.flavor = flavor
     self.endpoint = endpoint
+    self.defaultHeaders = defaultHeaders
     self.capabilities = capabilities
     self.limits = limits
   }
 }
 
+public struct ModelTarget: Sendable {
+  public var model: Model
+  public var headers: [String: String]
+  public var sensitiveHeaders: [String: String]
+
+  public init(
+    model: Model,
+    headers: [String: String] = [:],
+    sensitiveHeaders: [String: String] = [:]
+  ) {
+    self.model = model
+    self.headers = headers
+    self.sensitiveHeaders = sensitiveHeaders
+  }
+}
+
 public struct Endpoint: Sendable, Hashable {
   public var baseURL: URL
-  public var defaultHeaders: [String: String]
 
-  public init(baseURL: URL, defaultHeaders: [String: String] = [:]) {
+  public init(baseURL: URL) {
     self.baseURL = baseURL
-    self.defaultHeaders = defaultHeaders
   }
 }
 
@@ -294,17 +311,20 @@ public struct TextOutput: Sendable, Hashable {
 }
 
 public struct ReasoningOutput: Sendable, Hashable {
+  public var id: String?
   public var text: String?
   public var summary: String?
   public var signature: String?
   public var redacted: Bool
 
   public init(
+    id: String? = nil,
     text: String? = nil,
     summary: String? = nil,
     signature: String? = nil,
     redacted: Bool = false
   ) {
+    self.id = id
     self.text = text
     self.summary = summary
     self.signature = signature

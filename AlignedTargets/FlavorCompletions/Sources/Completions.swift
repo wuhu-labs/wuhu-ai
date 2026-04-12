@@ -106,15 +106,15 @@ public enum Completions {
     var model: Model
   }
 
-  public static func infer(_ input: Input, model: Model) async throws -> Output {
+  public static func infer(_ input: Input, target: ModelTarget) async throws -> Output {
     _ = input
-    try ensureFlavor(model)
+    try ensureFlavor(target.model)
     throw AIError.unimplemented("Completions.infer")
   }
 
-  public static func stream(_ input: Input, model: Model) async throws -> AICore.OutputStream {
+  public static func stream(_ input: Input, target: ModelTarget) async throws -> AICore.OutputStream {
     _ = input
-    try ensureFlavor(model)
+    try ensureFlavor(target.model)
     throw AIError.unimplemented("Completions.stream")
   }
 
@@ -172,7 +172,8 @@ public extension Model {
     Model(
       id: id,
       flavor: .completions,
-      endpoint: .init(baseURL: baseURL, defaultHeaders: defaultHeaders),
+      endpoint: .init(baseURL: baseURL),
+      defaultHeaders: defaultHeaders,
       capabilities: capabilities,
       limits: limits
     )
