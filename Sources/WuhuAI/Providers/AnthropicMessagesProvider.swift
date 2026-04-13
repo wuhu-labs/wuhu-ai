@@ -36,9 +36,7 @@ public struct AnthropicMessagesProvider: Sendable {
       let merged = mergeCSVHeader(existing, adding: promptCachingBetaFeature)
       setHeader(merged, for: "anthropic-beta", in: &headers)
     }
-    if let thinking,
-       shouldSendInterleavedThinkingBeta(for: model.id, thinking: thinking)
-    {
+    if thinking != nil {
       let existing = getHeaderValue(headers, name: "anthropic-beta")
       let merged = mergeCSVHeader(existing, adding: interleavedThinkingBetaFeature)
       setHeader(merged, for: "anthropic-beta", in: &headers)
@@ -285,7 +283,6 @@ public struct AnthropicMessagesProvider: Sendable {
       mode: .adaptive,
       effort: effort,
       display: .summarized,
-      interleaved: true,
     )
   }
 
@@ -334,17 +331,6 @@ public struct AnthropicMessagesProvider: Sendable {
       "thinking": reasoning.text ?? "",
       "signature": signature,
     ]
-  }
-
-  private func shouldSendInterleavedThinkingBeta(for modelId: String, thinking: AnthropicThinkingOptions) -> Bool {
-    guard thinking.interleaved else { return false }
-
-    switch thinking.mode {
-    case .manual:
-      return true
-    case .adaptive:
-      return !supportsAnthropicAdaptiveThinking(modelId: modelId)
-    }
   }
 
   private func applyExplicitPromptCachingToLastUserTurn(messages: inout [[String: Any]]) {

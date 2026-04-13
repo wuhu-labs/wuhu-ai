@@ -249,7 +249,7 @@ struct AnthropicMessagesProviderTests {
 
     let fetch = MockFetchClient(handler: { request in
       let headers = normalizedHeaders(request)
-      #expect(headers["anthropic-beta"] == nil)
+      #expect(headers["anthropic-beta"]?.contains("interleaved-thinking-2025-05-14") == true)
 
       let body = try #require(try await bodyData(request))
       let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])

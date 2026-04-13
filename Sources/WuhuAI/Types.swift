@@ -252,21 +252,17 @@ public struct AnthropicThinkingOptions: Sendable, Hashable {
   /// Used for Anthropic adaptive thinking on newer models (`output_config.effort`).
   public var effort: ReasoningEffort?
   public var display: AnthropicThinkingDisplay
-  /// Enables interleaved thinking by default. Older/manual flows may require a beta header.
-  public var interleaved: Bool
 
   public init(
     mode: AnthropicThinkingMode = .manual,
     budgetTokens: Int? = nil,
     effort: ReasoningEffort? = nil,
     display: AnthropicThinkingDisplay = .summarized,
-    interleaved: Bool = true,
   ) {
     self.mode = mode
     self.budgetTokens = budgetTokens
     self.effort = effort
     self.display = display
-    self.interleaved = interleaved
   }
 }
 
