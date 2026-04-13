@@ -228,7 +228,7 @@ private struct RecordedHeader: Codable, Equatable, Sendable {
       return switch name {
       case "authorization":
         Self(name: header.name, value: "Bearer redacted")
-      case "x-api-key":
+      case "x-api-key", "chatgpt-account-id":
         Self(name: header.name, value: "redacted")
       default:
         header
