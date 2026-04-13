@@ -184,7 +184,7 @@ public struct OpenAICodexResponsesProvider: Sendable {
     var body: [String: Any] = [
       "model": model.id,
       "stream": true,
-      "store": envBool("PIAI_OPENAI_STORE") ?? false,
+      "store": false,
       "input": input,
       "text": ["verbosity": "medium"],
       "include": ["reasoning.encrypted_content"],
