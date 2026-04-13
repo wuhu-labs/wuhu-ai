@@ -26,8 +26,15 @@ let package = Package(
       name: "WuhuAITests",
       dependencies: [
         "WuhuAI",
+        .product(name: "FetchURLSession", package: "wuhu-fetch"),
       ],
-      path: "Tests/WuhuAITests"
+      path: "Tests/WuhuAITests",
+      exclude: [
+        "IntegrationTests/README.md",
+        "IntegrationTests/llm-forward-proxy.py",
+        "IntegrationTests/llm-forward-proxy.config.sample.json",
+        "IntegrationTests/Recordings",
+      ]
     ),
   ],
   swiftLanguageModes: [.v6]

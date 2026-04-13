@@ -6,6 +6,7 @@ import HTTPTypes
 public struct AnthropicMessagesProvider: Sendable {
   private let fetch: FetchClient
   private let promptCachingBetaFeature = "prompt-caching-2024-07-31"
+  private let interleavedThinkingBetaFeature = "interleaved-thinking-2025-05-14"
 
   public init(fetch: FetchClient) {
     self.fetch = fetch
@@ -18,6 +19,7 @@ public struct AnthropicMessagesProvider: Sendable {
 
     let apiKey = try resolveAPIKey(options.apiKey, env: "ANTHROPIC_API_KEY", provider: model.provider)
     let url = model.baseURL.appending(path: "messages")
+    let thinking = try resolveAnthropicThinkingOptions(model: model, options: options)
 
     var headers = Headers()
     headers[.contentType] = "application/json"
@@ -34,18 +36,28 @@ public struct AnthropicMessagesProvider: Sendable {
       let merged = mergeCSVHeader(existing, adding: promptCachingBetaFeature)
       setHeader(merged, for: "anthropic-beta", in: &headers)
     }
+    if thinking != nil {
+      let existing = getHeaderValue(headers, name: "anthropic-beta")
+      let merged = mergeCSVHeader(existing, adding: interleavedThinkingBetaFeature)
+      setHeader(merged, for: "anthropic-beta", in: &headers)
+    }
 
     let request = try makeJSONRequest(
       url: url,
       headers: headers,
-      bodyJSONObject: buildBody(model: model, context: context, options: options)
+      bodyJSONObject: buildBody(model: model, context: context, options: options, thinking: thinking)
     )
 
     let response = try await validatedResponse(for: request, using: self.fetch)
     return mapAnthropicSSE(response.sse(), provider: model.provider, modelId: model.id)
   }
 
-  private func buildBody(model: Model, context: Context, options: RequestOptions) -> [String: Any] {
+  private func buildBody(
+    model: Model,
+    context: Context,
+    options: RequestOptions,
+    thinking: AnthropicThinkingOptions?
+  ) -> [String: Any] {
     var params: [[String: Any]] = []
 
     var i = 0
@@ -54,10 +66,14 @@ public struct AnthropicMessagesProvider: Sendable {
 
       switch message {
       case let .user(m):
-        let text = m.content.compactMap { block -> String? in
-          if case let .text(part) = block { return part.text }
-          return nil
-        }.joined(separator: "\n")
+        let textBlocks: [[String: Any]] = m.content.compactMap { block in
+          guard case let .text(part) = block else { return nil }
+          guard !part.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+          return [
+            "type": "text",
+            "text": part.text,
+          ]
+        }
 
         let imageBlocks: [[String: Any]] = m.content.compactMap { block in
           guard case let .image(img) = block else { return nil }
@@ -71,32 +87,20 @@ public struct AnthropicMessagesProvider: Sendable {
           ]
         }
 
-        if imageBlocks.isEmpty {
-          // Text-only: keep current behavior
-          if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            i += 1
-            continue
-          }
-          params.append([
-            "role": "user",
-            "content": [
-              [
-                "type": "text",
-                "text": text,
-              ],
-            ],
-          ])
+        let contentBlocks: [[String: Any]] = if imageBlocks.isEmpty {
+          textBlocks.isEmpty ? [] : textBlocks
         } else {
-          // Has images: build mixed content array
-          var contentBlocks: [[String: Any]] = []
-          let effectiveText = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? "(see attached image)"
-            : text
-          contentBlocks.append([
-            "type": "text",
-            "text": effectiveText,
-          ])
-          contentBlocks.append(contentsOf: imageBlocks)
+          if textBlocks.isEmpty {
+            [[
+              "type": "text",
+              "text": "(see attached image)",
+            ]] + imageBlocks
+          } else {
+            textBlocks + imageBlocks
+          }
+        }
+
+        if !contentBlocks.isEmpty {
           params.append([
             "role": "user",
             "content": contentBlocks,
@@ -105,26 +109,28 @@ public struct AnthropicMessagesProvider: Sendable {
         i += 1
 
       case let .assistant(m):
-        var blocks: [[String: Any]] = []
-        for block in m.content {
+        let blocks: [[String: Any]] = m.content.compactMap { block in
           switch block {
           case let .text(part):
-            if part.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { continue }
-            blocks.append([
+            guard !part.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+            return [
               "type": "text",
               "text": part.text,
-            ])
+            ]
+
           case let .toolCall(call):
-            blocks.append([
+            return [
               "type": "tool_use",
               "id": call.id,
               "name": call.name,
               "input": call.arguments.toAny(),
-            ])
-          case .reasoning:
-            continue
+            ]
+
+          case let .reasoning(reasoning):
+            return makeAnthropicReasoningBlock(reasoning)
+
           case .image:
-            continue
+            return nil
           }
         }
         if !blocks.isEmpty {
@@ -158,7 +164,6 @@ public struct AnthropicMessagesProvider: Sendable {
           }
 
           if imageBlocks.isEmpty {
-            // No images: use string content (current behavior)
             toolResults.append([
               "type": "tool_result",
               "tool_use_id": m.toolCallId,
@@ -166,7 +171,6 @@ public struct AnthropicMessagesProvider: Sendable {
               "is_error": m.isError,
             ])
           } else {
-            // Has images: use array content
             var contentBlocks: [[String: Any]] = []
             if !text.isEmpty {
               contentBlocks.append([
@@ -203,6 +207,15 @@ public struct AnthropicMessagesProvider: Sendable {
 
     if let temperature = options.temperature {
       body["temperature"] = temperature
+    }
+
+    if let thinking {
+      body["thinking"] = anthropicThinkingObject(from: thinking)
+      if let adaptiveEffort = resolveAnthropicAdaptiveEffort(thinking: thinking) {
+        body["output_config"] = [
+          "effort": adaptiveEffort.rawValue,
+        ]
+      }
     }
 
     if let caching = options.anthropicPromptCaching {
@@ -243,6 +256,81 @@ public struct AnthropicMessagesProvider: Sendable {
     }
 
     return body
+  }
+
+  private func resolveAnthropicThinkingOptions(
+    model: Model,
+    options: RequestOptions,
+  ) throws -> AnthropicThinkingOptions? {
+    if let thinking = options.anthropicThinking {
+      if thinking.mode == .adaptive,
+         !supportsAnthropicAdaptiveThinking(modelId: model.id)
+      {
+        throw WuhuAIError.unsupported(
+          "Anthropic adaptive thinking requires Claude Opus 4.6 / Sonnet 4.6 or later compatible models"
+        )
+      }
+      return thinking
+    }
+
+    guard let effort = options.reasoningEffort,
+          supportsAnthropicAdaptiveThinking(modelId: model.id)
+    else {
+      return nil
+    }
+
+    return AnthropicThinkingOptions(
+      mode: .adaptive,
+      effort: effort,
+      display: .summarized,
+    )
+  }
+
+  private func anthropicThinkingObject(from options: AnthropicThinkingOptions) -> [String: Any] {
+    var object: [String: Any] = [
+      "display": options.display.rawValue,
+    ]
+
+    switch options.mode {
+    case .manual:
+      object["type"] = "enabled"
+      if let budgetTokens = options.budgetTokens {
+        object["budget_tokens"] = budgetTokens
+      }
+
+    case .adaptive:
+      object["type"] = "adaptive"
+    }
+
+    return object
+  }
+
+  private func resolveAnthropicAdaptiveEffort(thinking: AnthropicThinkingOptions) -> AnthropicAdaptiveReasoningEffort? {
+    guard thinking.mode == .adaptive,
+          let effort = thinking.effort
+    else {
+      return nil
+    }
+    return mapReasoningEffortToAnthropicAdaptive(effort)
+  }
+
+  private func makeAnthropicReasoningBlock(_ reasoning: ReasoningContent) -> [String: Any]? {
+    if let redactedData = reasoning.redactedData {
+      return [
+        "type": "redacted_thinking",
+        "data": redactedData,
+      ]
+    }
+
+    guard let signature = reasoning.signature ?? reasoning.encryptedContent else {
+      return nil
+    }
+
+    return [
+      "type": "thinking",
+      "thinking": reasoning.text ?? "",
+      "signature": signature,
+    ]
   }
 
   private func applyExplicitPromptCachingToLastUserTurn(messages: inout [[String: Any]]) {
@@ -301,6 +389,7 @@ public struct AnthropicMessagesProvider: Sendable {
 
         var currentTextIndex: Int?
         var currentToolCallIndex: Int?
+        var currentReasoningIndex: Int?
         var currentToolCallArgumentsBuffer = ""
         var inputTokens = 0
         var outputTokens = 0
@@ -324,12 +413,15 @@ public struct AnthropicMessagesProvider: Sendable {
               if let block = dict["content_block"] as? [String: Any],
                  let type = block["type"] as? String
               {
-                if type == "text" {
+                switch type {
+                case "text":
                   output.content.append(.text(.init(text: "")))
                   currentTextIndex = output.content.count - 1
                   currentToolCallIndex = nil
+                  currentReasoningIndex = nil
                   currentToolCallArgumentsBuffer = ""
-                } else if type == "tool_use" {
+
+                case "tool_use":
                   let id = block["id"] as? String ?? UUID().uuidString
                   let name = block["name"] as? String ?? "tool"
                   let inputAny = block["input"] ?? [:]
@@ -337,7 +429,32 @@ public struct AnthropicMessagesProvider: Sendable {
                   output.content.append(.toolCall(.init(id: id, name: name, arguments: args)))
                   currentToolCallIndex = output.content.count - 1
                   currentTextIndex = nil
+                  currentReasoningIndex = nil
                   currentToolCallArgumentsBuffer = ""
+
+                case "thinking":
+                  output.content.append(.reasoning(.init(
+                    id: "anthropic_reasoning_\(output.content.count)",
+                    text: nonEmptyString(block["thinking"] as? String),
+                    signature: nonEmptyString(block["signature"] as? String),
+                  )))
+                  currentReasoningIndex = output.content.count - 1
+                  currentTextIndex = nil
+                  currentToolCallIndex = nil
+                  currentToolCallArgumentsBuffer = ""
+
+                case "redacted_thinking":
+                  output.content.append(.reasoning(.init(
+                    id: "anthropic_reasoning_\(output.content.count)",
+                    redactedData: block["data"] as? String,
+                  )))
+                  currentReasoningIndex = output.content.count - 1
+                  currentTextIndex = nil
+                  currentToolCallIndex = nil
+                  currentToolCallArgumentsBuffer = ""
+
+                default:
+                  continue
                 }
               }
 
@@ -359,6 +476,24 @@ public struct AnthropicMessagesProvider: Sendable {
                   continuation.yield(.textDelta(delta: text, partial: output))
                 } else if deltaType == "input_json_delta", let partial = delta["partial_json"] as? String {
                   currentToolCallArgumentsBuffer += partial
+                } else if deltaType == "thinking_delta", let thinking = delta["thinking"] as? String {
+                  if let idx = currentReasoningIndex,
+                     idx >= 0,
+                     idx < output.content.count,
+                     case var .reasoning(reasoning) = output.content[idx]
+                  {
+                    reasoning.text = (reasoning.text ?? "") + thinking
+                    output.content[idx] = .reasoning(reasoning)
+                  }
+                } else if deltaType == "signature_delta", let signature = delta["signature"] as? String {
+                  if let idx = currentReasoningIndex,
+                     idx >= 0,
+                     idx < output.content.count,
+                     case var .reasoning(reasoning) = output.content[idx]
+                  {
+                    reasoning.signature = (reasoning.signature ?? "") + signature
+                    output.content[idx] = .reasoning(reasoning)
+                  }
                 }
               }
 
@@ -374,6 +509,7 @@ public struct AnthropicMessagesProvider: Sendable {
               }
               currentTextIndex = nil
               currentToolCallIndex = nil
+              currentReasoningIndex = nil
               currentToolCallArgumentsBuffer = ""
 
             case "message_delta":
@@ -422,6 +558,54 @@ public struct AnthropicMessagesProvider: Sendable {
       }
     }
   }
+}
+
+private enum AnthropicAdaptiveReasoningEffort: String {
+  case low
+  case medium
+  case high
+  case max
+}
+
+private func supportsAnthropicAdaptiveThinking(modelId: String) -> Bool {
+  let id = modelId.split(separator: "/").last.map(String.init) ?? modelId
+  if id.localizedCaseInsensitiveContains("mythos") {
+    return true
+  }
+
+  let patterns = ["claude-opus-4-", "claude-sonnet-4-"]
+  for pattern in patterns {
+    guard let range = id.range(of: pattern) else { continue }
+    let suffix = id[range.upperBound...]
+    let digits = suffix.prefix { $0.isNumber }
+    if let minor = Int(digits), minor >= 6 {
+      return true
+    }
+  }
+
+  return false
+}
+
+private func mapReasoningEffortToAnthropicAdaptive(_ effort: ReasoningEffort) -> AnthropicAdaptiveReasoningEffort {
+  switch effort {
+  case .minimal:
+    // Anthropic adaptive thinking has no `minimal` tier. We bias toward `medium`
+    // as a best-effort bridge so reasoning remains meaningfully enabled.
+    .medium
+  case .low:
+    .low
+  case .medium:
+    .medium
+  case .high:
+    .high
+  case .xhigh:
+    .max
+  }
+}
+
+private func nonEmptyString(_ value: String?) -> String? {
+  guard let value, !value.isEmpty else { return nil }
+  return value
 }
 
 private func parseJSONValueLenient(_ text: String) -> JSONValue? {
