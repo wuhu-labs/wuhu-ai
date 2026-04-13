@@ -40,16 +40,13 @@ struct OpenAIResponsesProviderTests {
   }
 
   @Test func replaysReasoningItemsInRequestBody() async throws {
-    setenv("PIAI_OPENAI_STORE", "true", 1)
-    defer { unsetenv("PIAI_OPENAI_STORE") }
-
     let apiKey = "sk-test"
 
     let fetch = MockFetchClient(handler: { request in
       let body = try #require(try await bodyData(request))
       let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
 
-      #expect(json["store"] as? Bool == true)
+      #expect(json["store"] as? Bool == false)
 
       let input = try #require(json["input"] as? [[String: Any]])
       let reasoning = input.first(where: { ($0["type"] as? String) == "reasoning" })

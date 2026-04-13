@@ -6,5 +6,9 @@
   "api.openai.com": {
     "header": "Authorization",
     "value": "Bearer replace-me-with-a-real-openai-key"
+  },
+  "chatgpt.com": {
+    "header": "Authorization",
+    "value": "Bearer replace-me-with-a-real-codex-access-token"
   }
 }

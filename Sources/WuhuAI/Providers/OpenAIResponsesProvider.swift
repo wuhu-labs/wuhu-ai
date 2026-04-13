@@ -188,7 +188,7 @@ public struct OpenAIResponsesProvider: Sendable {
       "model": model.id,
       "input": input,
       "stream": true,
-      "store": envBool("PIAI_OPENAI_STORE") ?? false,
+      "store": false,
     ]
 
     if let tools = context.tools, !tools.isEmpty {
