@@ -70,18 +70,31 @@ public struct ToolCall: Sendable, Hashable {
 
 /// Provider-specific reasoning content that must be replayed back to the provider in subsequent turns.
 ///
-/// Currently used by OpenAI Responses API (`type: "reasoning"` items), where the server may require
-/// historical reasoning items (and their `encrypted_content`) to be included in later requests,
-/// especially when tool calls are involved.
+/// Used by providers that expose hidden or summarized reasoning state as structured content.
+/// OpenAI Responses API uses `encrypted_content` and `summary`, while Anthropic Messages API
+/// uses `thinking` / `redacted_thinking` blocks plus a `signature` for replay.
 public struct ReasoningContent: Sendable, Hashable {
   public var id: String
   public var encryptedContent: String?
   public var summary: [JSONValue]
+  public var text: String?
+  public var signature: String?
+  public var redactedData: String?
 
-  public init(id: String, encryptedContent: String? = nil, summary: [JSONValue] = []) {
+  public init(
+    id: String,
+    encryptedContent: String? = nil,
+    summary: [JSONValue] = [],
+    text: String? = nil,
+    signature: String? = nil,
+    redactedData: String? = nil,
+  ) {
     self.id = id
     self.encryptedContent = encryptedContent
     self.summary = summary
+    self.text = text
+    self.signature = signature
+    self.redactedData = redactedData
   }
 }
 
@@ -178,6 +191,7 @@ public struct RequestOptions: Sendable, Hashable {
   public var sessionId: String?
   public var reasoningEffort: ReasoningEffort?
   public var anthropicPromptCaching: AnthropicPromptCachingOptions?
+  public var anthropicThinking: AnthropicThinkingOptions?
 
   public init(
     temperature: Double? = nil,
@@ -187,6 +201,7 @@ public struct RequestOptions: Sendable, Hashable {
     sessionId: String? = nil,
     reasoningEffort: ReasoningEffort? = nil,
     anthropicPromptCaching: AnthropicPromptCachingOptions? = nil,
+    anthropicThinking: AnthropicThinkingOptions? = nil,
   ) {
     self.temperature = temperature
     self.maxTokens = maxTokens
@@ -195,6 +210,7 @@ public struct RequestOptions: Sendable, Hashable {
     self.sessionId = sessionId
     self.reasoningEffort = reasoningEffort
     self.anthropicPromptCaching = anthropicPromptCaching
+    self.anthropicThinking = anthropicThinking
   }
 }
 
@@ -214,6 +230,43 @@ public struct AnthropicPromptCachingOptions: Sendable, Hashable {
   public init(mode: AnthropicPromptCachingMode = .automatic, sendBetaHeader: Bool = false) {
     self.mode = mode
     self.sendBetaHeader = sendBetaHeader
+  }
+}
+
+public enum AnthropicThinkingMode: String, Sendable, Hashable, Codable {
+  case manual
+  case adaptive
+}
+
+public enum AnthropicThinkingDisplay: String, Sendable, Hashable, Codable {
+  /// Returns thinking blocks with empty `text` and replayable signatures for lower latency.
+  case omitted
+  /// Returns provider-generated summaries in the reasoning `text` field.
+  case summarized
+}
+
+public struct AnthropicThinkingOptions: Sendable, Hashable {
+  public var mode: AnthropicThinkingMode
+  /// Used for Anthropic manual thinking (`thinking.type = "enabled"`).
+  public var budgetTokens: Int?
+  /// Used for Anthropic adaptive thinking on newer models (`output_config.effort`).
+  public var effort: ReasoningEffort?
+  public var display: AnthropicThinkingDisplay
+  /// Enables interleaved thinking by default. Older/manual flows may require a beta header.
+  public var interleaved: Bool
+
+  public init(
+    mode: AnthropicThinkingMode = .manual,
+    budgetTokens: Int? = nil,
+    effort: ReasoningEffort? = nil,
+    display: AnthropicThinkingDisplay = .summarized,
+    interleaved: Bool = true,
+  ) {
+    self.mode = mode
+    self.budgetTokens = budgetTokens
+    self.effort = effort
+    self.display = display
+    self.interleaved = interleaved
   }
 }
 
@@ -299,8 +352,22 @@ public extension ContentBlock {
     .text(.init(text: text, signature: signature))
   }
 
-  static func reasoning(id: String, encryptedContent: String? = nil) -> ContentBlock {
-    .reasoning(.init(id: id, encryptedContent: encryptedContent))
+  static func reasoning(
+    id: String,
+    encryptedContent: String? = nil,
+    summary: [JSONValue] = [],
+    text: String? = nil,
+    signature: String? = nil,
+    redactedData: String? = nil,
+  ) -> ContentBlock {
+    .reasoning(.init(
+      id: id,
+      encryptedContent: encryptedContent,
+      summary: summary,
+      text: text,
+      signature: signature,
+      redactedData: redactedData,
+    ))
   }
 
   static func image(data: String, mimeType: String) -> ContentBlock {
