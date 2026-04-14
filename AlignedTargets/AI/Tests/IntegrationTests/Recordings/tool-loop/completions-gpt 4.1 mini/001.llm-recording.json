@@ -1,0 +1,133 @@
+{
+  "request" : {
+    "body" : {
+      "kind" : "utf8",
+      "text" : "{\"messages\":[{\"content\":\"You are a careful file-inspecting agent.\\nYou must use the provided tools to inspect the file system.\\nDo not assume any filenames exist before listing them.\\nOnce you know the answer, reply with only the file content.\",\"role\":\"system\"},{\"content\":\"Tell me the content of the only file whose filename is not a prime\",\"role\":\"user\"}],\"model\":\"gpt-4.1-mini\",\"store\":false,\"stream\":false,\"tool_choice\":\"auto\",\"tools\":[{\"function\":{\"description\":\"List files in the root directory.\",\"name\":\"ls\",\"parameters\":{\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"},\"strict\":false},\"type\":\"function\"},{\"function\":{\"description\":\"Read the contents of a file in the root directory.\",\"name\":\"read\",\"parameters\":{\"additionalProperties\":false,\"properties\":{\"path\":{\"description\":\"The file name to read, such as 9.txt.\",\"type\":\"string\"}},\"required\":[\"path\"],\"type\":\"object\"},\"strict\":false},\"type\":\"function\"}]}"
+    },
+    "headers" : [
+      {
+        "name" : "Accept",
+        "value" : "application\/json"
+      },
+      {
+        "name" : "Authorization",
+        "value" : "Bearer abc123"
+      },
+      {
+        "name" : "Content-Type",
+        "value" : "application\/json"
+      }
+    ],
+    "method" : "POST",
+    "url" : "https:\/\/api.openai.com\/v1\/chat\/completions"
+  },
+  "response" : {
+    "body" : {
+      "kind" : "utf8",
+      "text" : "{\n  \"id\": \"chatcmpl-DTpjuYdtpKEYOBQcWHmp957JB2RUC\",\n  \"object\": \"chat.completion\",\n  \"created\": 1776002770,\n  \"model\": \"gpt-4.1-mini-2025-04-14\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": null,\n        \"tool_calls\": [\n          {\n            \"id\": \"call_Aavzlu1kgYYBAFZDrEGtkIcj\",\n            \"type\": \"function\",\n            \"function\": {\n              \"name\": \"ls\",\n              \"arguments\": \"{}\"\n            }\n          }\n        ],\n        \"refusal\": null,\n        \"annotations\": []\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"tool_calls\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 132,\n    \"completion_tokens\": 10,\n    \"total_tokens\": 142,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_80a66bc0e1\"\n}\n"
+    },
+    "headers" : [
+      {
+        "name" : "access-control-expose-headers",
+        "value" : "X-Request-ID"
+      },
+      {
+        "name" : "Alt-Svc",
+        "value" : "h3=\":443\"; ma=86400"
+      },
+      {
+        "name" : "CF-Cache-Status",
+        "value" : "DYNAMIC"
+      },
+      {
+        "name" : "CF-Ray",
+        "value" : "9eb2ca3bbb35eb29-SJC"
+      },
+      {
+        "name" : "Connection",
+        "value" : "keep-alive"
+      },
+      {
+        "name" : "Content-Encoding",
+        "value" : "gzip"
+      },
+      {
+        "name" : "Content-Length",
+        "value" : "502"
+      },
+      {
+        "name" : "Content-Type",
+        "value" : "application\/json"
+      },
+      {
+        "name" : "Date",
+        "value" : "Sun, 12 Apr 2026 14:06:10 GMT, Sun, 12 Apr 2026 14:06:10 GMT"
+      },
+      {
+        "name" : "openai-organization",
+        "value" : "lakeridge-6eah8t"
+      },
+      {
+        "name" : "openai-processing-ms",
+        "value" : "602"
+      },
+      {
+        "name" : "openai-project",
+        "value" : "proj_TD2RqwW78hOW3VkSBw1g2rQO"
+      },
+      {
+        "name" : "openai-version",
+        "value" : "2020-10-01"
+      },
+      {
+        "name" : "Server",
+        "value" : "WuhuAILLMForwardProxy\/0.1 Python\/3.9.6, cloudflare"
+      },
+      {
+        "name" : "Set-Cookie",
+        "value" : "__cf_bm=6Eg3vI3eQpUUKZ2h4mTsQ3X0YgNNJfA61AXsKHESpOc-1776002769.23855-1.0.1.1-o2ih5DuCrw60vYX0ySqq.C0.d4qr0yL5NWEXZiYdx2Q4OnvB38NKP.M1a9gXMBqEqD2RhQj83lWigDk6PZsEbyr4zOiwhidp__sqk_dGVjV0RRaPMiicdKt7wHxtN.KF; HttpOnly; Secure; Path=\/; Domain=api.openai.com; Expires=Sun, 12 Apr 2026 14:36:10 GMT"
+      },
+      {
+        "name" : "Strict-Transport-Security",
+        "value" : "max-age=31536000; includeSubDomains; preload"
+      },
+      {
+        "name" : "X-Content-Type-Options",
+        "value" : "nosniff"
+      },
+      {
+        "name" : "x-openai-proxy-wasm",
+        "value" : "v0.1"
+      },
+      {
+        "name" : "x-ratelimit-limit-requests",
+        "value" : "30000"
+      },
+      {
+        "name" : "x-ratelimit-limit-tokens",
+        "value" : "150000000"
+      },
+      {
+        "name" : "x-ratelimit-remaining-requests",
+        "value" : "29999"
+      },
+      {
+        "name" : "x-ratelimit-remaining-tokens",
+        "value" : "149999927"
+      },
+      {
+        "name" : "x-ratelimit-reset-requests",
+        "value" : "2ms"
+      },
+      {
+        "name" : "x-ratelimit-reset-tokens",
+        "value" : "0s"
+      },
+      {
+        "name" : "x-request-id",
+        "value" : "req_2344fd893cb34796b8ec6c0251d93d45"
+      }
+    ],
+    "statusCode" : 200
+  }
+}
