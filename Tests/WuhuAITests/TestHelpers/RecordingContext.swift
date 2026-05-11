@@ -3,11 +3,11 @@
 #else
   import Crypto
 #endif
-#if canImport(FetchURLSession)
-  import FetchURLSession
-#else
+#if os(Linux)
   import AsyncHTTPClient
   import FetchAsyncHTTPClient
+#else
+  import FetchURLSession
 #endif
 import Fetch
 import FetchSSE
@@ -97,12 +97,12 @@ struct RecordingContext: Sendable {
     case .recordAll, .recordOnly:
       let collector = RecordingCollector()
       self.collector = collector
-#if canImport(FetchURLSession)
-      let realClient = FetchClient.urlSession()
-#else
+#if os(Linux)
       let realClient = FetchClient.asyncHTTPClient(
         HTTPClient(eventLoopGroupProvider: .singleton)
       )
+#else
+      let realClient = FetchClient.urlSession()
 #endif
 
       self.fetchClient = FetchClient { request in
