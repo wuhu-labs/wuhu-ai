@@ -11,14 +11,15 @@ let package = Package(
     .library(name: "WuhuAI", targets: ["WuhuAI"]),
   ],
   dependencies: [
-    .package(url: "https://github.com/wuhu-labs/wuhu-fetch", .upToNextMinor(from: "0.2.0")),
+    .package(url: "https://github.com/wuhu-labs/wuhu-json.git", exact: "0.1.0"),
+    .package(url: "https://github.com/wuhu-labs/wuhu-fetch.git", .upToNextMinor(from: "0.2.0")),
+    .package(url: "https://github.com/apple/swift-crypto.git", "3.0.0"..."5.0.0"),
   ],
   targets: [
     .target(
       name: "WuhuAI",
       dependencies: [
-        .product(name: "Fetch", package: "wuhu-fetch"),
-        .product(name: "FetchSSE", package: "wuhu-fetch"),
+        .product(name: "JSONValue", package: "wuhu-json"),
       ],
       path: "Sources/WuhuAI"
     ),
@@ -26,14 +27,18 @@ let package = Package(
       name: "WuhuAITests",
       dependencies: [
         "WuhuAI",
+        .product(name: "JSONValue", package: "wuhu-json"),
+        .product(name: "Fetch", package: "wuhu-fetch"),
+        .product(name: "FetchSSE", package: "wuhu-fetch"),
         .product(name: "FetchURLSession", package: "wuhu-fetch"),
+        .product(name: "FetchAsyncHTTPClient", package: "wuhu-fetch"),
+        .product(name: "Crypto", package: "swift-crypto"),
       ],
       path: "Tests/WuhuAITests",
       exclude: [
-        "IntegrationTests/README.md",
-        "IntegrationTests/llm-forward-proxy.py",
-        "IntegrationTests/llm-forward-proxy.config.sample.json",
         "IntegrationTests/Recordings",
+        "IntegrationTests/panda.jpg",
+        "TestHelpers/RECORDING.md",
       ]
     ),
   ],
