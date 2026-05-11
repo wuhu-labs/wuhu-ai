@@ -31,6 +31,7 @@ let package = Package(
         .product(name: "Fetch", package: "wuhu-fetch"),
         .product(name: "FetchSSE", package: "wuhu-fetch"),
         .product(name: "FetchURLSession", package: "wuhu-fetch"),
+        .product(name: "FetchAsyncHTTPClient", package: "wuhu-fetch"),
         .product(name: "Crypto", package: "swift-crypto"),
       ],
       path: "Tests/WuhuAITests",
