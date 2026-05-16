@@ -137,6 +137,40 @@ import Testing
     #expect((content[0]["text"] as? [String: Any])?["text"] as? String == "hello")
   }
 
+  // MARK: AssistantMessageMetadata
+
+  @Test func assistantMessageMetadataRoundTrips() throws {
+    let metadata = AssistantMessageMetadata(
+      stopReason: .maxTokens,
+      usage: Usage(
+        inputTokens: 10,
+        outputTokens: 20,
+        cacheReadTokens: 3,
+        cacheWriteTokens: 4,
+        reasoningTokens: 5,
+        totalTokens: 42,
+      ),
+    )
+    let data = try JSONEncoder().encode(metadata)
+    let decoded = try JSONDecoder().decode(AssistantMessageMetadata.self, from: data)
+    #expect(decoded == metadata)
+  }
+
+  @Test func assistantMessageMetadataUsesSnakeCaseKeys() throws {
+    let metadata = AssistantMessageMetadata(
+      stopReason: .maxTokens,
+      usage: Usage(inputTokens: 1, outputTokens: 2, totalTokens: 3),
+    )
+    let data = try JSONEncoder().encode(metadata)
+    let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+    #expect(json["stop_reason"] as? String == "max_tokens")
+    #expect(json["stopReason"] == nil)
+    let usage = json["usage"] as! [String: Any]
+    #expect(usage["input_tokens"] as? Int == 1)
+    #expect(usage["output_tokens"] as? Int == 2)
+    #expect(usage["total_tokens"] as? Int == 3)
+  }
+
   // MARK: JSONValue
 
   @Test func jsonValueNullRoundTrips() throws {
