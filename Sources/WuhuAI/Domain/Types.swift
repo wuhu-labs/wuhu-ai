@@ -274,13 +274,18 @@ public struct AssistantMessage: Hashable, Sendable, Codable {
 }
 
 /// Post-stream metadata for an assistant message.
-public struct AssistantMessageMetadata: Hashable, Sendable {
+public struct AssistantMessageMetadata: Hashable, Sendable, Codable {
   public var stopReason: StopReason
   public var usage: Usage?
 
   public init(stopReason: StopReason = .stop, usage: Usage? = nil) {
     self.stopReason = stopReason
     self.usage = usage
+  }
+
+  public enum CodingKeys: String, CodingKey {
+    case stopReason = "stop_reason"
+    case usage = "usage"
   }
 }
 
