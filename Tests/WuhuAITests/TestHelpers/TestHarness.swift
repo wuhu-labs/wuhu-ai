@@ -1,3 +1,4 @@
+import Dependencies
 import Foundation
 @testable import WuhuAI
 import Testing
@@ -26,7 +27,11 @@ func withRecording(
   }
 
   let ctx = RecordingContext(name: name, mode: mode)
-  try await body(ctx)
+  try await withDependencies {
+    $0.fetch = ctx.fetchClient
+  } operation: {
+    try await body(ctx)
+  }
 
   // Atomic flush: only persist recordings if the test body passed.
   if mode.isRecording {
