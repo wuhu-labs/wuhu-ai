@@ -30,18 +30,18 @@ private let nonReasoningModels: [ModelEntry] = [
 
   @Test(arguments: reasoningModels)
   func reasoningBlocksArePresent(entry: ModelEntry) async throws {
-    try await withRecording(entry.recordingName) { recording in
+    try await withRecording(entry.recordingName) {
       let endpoint = makeEndpoint(entry)
       let context = Context(messages: [
         .user(UserMessage(content: [.text(TextContent(text: reasoningPrompt))])),
       ])
 
-      let (msg, metadata) = try await infer(
-        endpoint: endpoint,
+      let msgInference = try await endpoint.infer(
         context: context,
         options: RequestOptions(reasoning: .effort("high")),
-        recording: recording,
       )
+      let msg = msgInference.message
+      let metadata = msgInference.metadata
 
       // Ensure the model actually produced output.
       #expect(!msg.content.isEmpty, "Expected non-empty content for model \(entry.model)")
@@ -77,18 +77,16 @@ private let nonReasoningModels: [ModelEntry] = [
 
   @Test(arguments: nonReasoningModels)
   func nonReasoningModelProducesZeroReasoningBlocks(entry: ModelEntry) async throws {
-    try await withRecording(entry.recordingName) { recording in
+    try await withRecording(entry.recordingName) {
       let endpoint = makeEndpoint(entry)
       let context = Context(messages: [
         .user(UserMessage(content: [.text(TextContent(text: reasoningPrompt))])),
       ])
 
-      let (msg, _) = try await infer(
-        endpoint: endpoint,
+      let msg = try await endpoint.infer(
         context: context,
         options: RequestOptions(reasoning: .none),
-        recording: recording,
-      )
+      ).message
 
       // Ensure the model actually produced output.
       #expect(!msg.content.isEmpty, "Non-reasoning model should produce content")
@@ -116,18 +114,16 @@ private let opaqueModels: [ModelEntry] = [
 @Suite struct ReasoningOpaqueTests {
   @Test(arguments: opaqueModels)
   func opaqueBlobHasCorrectShape(entry: ModelEntry) async throws {
-    try await withRecording(entry.recordingName) { recording in
+    try await withRecording(entry.recordingName) {
       let endpoint = makeEndpoint(entry)
       let context = Context(messages: [
         .user(UserMessage(content: [.text(TextContent(text: reasoningPrompt))])),
       ])
 
-      let (msg, _) = try await infer(
-        endpoint: endpoint,
+      let msg = try await endpoint.infer(
         context: context,
         options: RequestOptions(reasoning: .effort("high")),
-        recording: recording,
-      )
+      ).message
 
       let reasoningBlocks = msg.content.compactMap { block -> ReasoningContent? in
         if case let .reasoning(r) = block { return r }

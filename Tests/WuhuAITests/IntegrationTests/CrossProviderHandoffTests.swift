@@ -22,7 +22,7 @@ private let sameDialectPairs: [(String, String, String, String)] = [
     targetProvider: String, targetModel: String,
   ) async throws {
     let recordingName = "\(sourceModel)-to-\(targetModel)-handoff"
-    try await withRecording(recordingName) { recording in
+    try await withRecording(recordingName) {
       let sourceEndpoint = makeEndpoint(providerID: sourceProvider, model: sourceModel)
       let targetEndpoint = makeEndpoint(providerID: targetProvider, model: targetModel)
 
@@ -33,12 +33,10 @@ private let sameDialectPairs: [(String, String, String, String)] = [
           .user(UserMessage(content: [.text(TextContent(text: "What is 2 + 2?"))])),
         ],
       )
-      let (sourceMsg, _) = try await infer(
-        endpoint: sourceEndpoint,
+      let sourceMsg = try await sourceEndpoint.infer(
         context: context,
         options: RequestOptions(),
-        recording: recording,
-      )
+      ).message
       #expect(!sourceMsg.content.isEmpty)
 
       // Turn 2: Feed to target.
@@ -50,12 +48,10 @@ private let sameDialectPairs: [(String, String, String, String)] = [
         from: sourceEndpoint.providerID,
         to: targetEndpoint,
       )
-      let (targetMsg, _) = try await infer(
-        endpoint: targetEndpoint,
+      let targetMsg = try await targetEndpoint.infer(
         context: normalizedContext,
         options: RequestOptions(),
-        recording: recording,
-      )
+      ).message
       #expect(!targetMsg.content.isEmpty)
     }
   }
@@ -75,7 +71,7 @@ private let crossDialectPairs: [(String, String, String, String)] = [
     targetProvider: String, targetModel: String,
   ) async throws {
     let recordingName = "\(sourceModel)-to-\(targetModel)-cross-dialect"
-    try await withRecording(recordingName) { recording in
+    try await withRecording(recordingName) {
       let sourceEndpoint = makeEndpoint(providerID: sourceProvider, model: sourceModel)
       let targetEndpoint = makeEndpoint(providerID: targetProvider, model: targetModel)
 
@@ -86,12 +82,10 @@ private let crossDialectPairs: [(String, String, String, String)] = [
           .user(UserMessage(content: [.text(TextContent(text: "What is the capital of France?"))])),
         ],
       )
-      let (sourceMsg, _) = try await infer(
-        endpoint: sourceEndpoint,
+      let sourceMsg = try await sourceEndpoint.infer(
         context: context,
         options: RequestOptions(),
-        recording: recording,
-      )
+      ).message
 
       // Turn 2: Feed to target.
       context.messages.append(.assistant(sourceMsg))
@@ -102,12 +96,10 @@ private let crossDialectPairs: [(String, String, String, String)] = [
         from: sourceEndpoint.providerID,
         to: targetEndpoint,
       )
-      let (targetMsg, _) = try await infer(
-        endpoint: targetEndpoint,
+      let targetMsg = try await targetEndpoint.infer(
         context: normalizedContext,
         options: RequestOptions(),
-        recording: recording,
-      )
+      ).message
       #expect(!targetMsg.content.isEmpty)
     }
   }
@@ -119,7 +111,7 @@ private let crossDialectPairs: [(String, String, String, String)] = [
   @Test
   func reasoningCrossProviderHandoff() async throws {
     let recordingName = "claude-sonnet-4-6-to-deepseek-v4-pro-reasoning-handoff"
-    try await withRecording(recordingName) { recording in
+    try await withRecording(recordingName) {
       let sourceEndpoint = makeEndpoint(providerID: "anthropic", model: "claude-sonnet-4-6")
       let targetEndpoint = makeEndpoint(providerID: "deepseek", model: "deepseek-v4-pro")
 
@@ -130,12 +122,10 @@ private let crossDialectPairs: [(String, String, String, String)] = [
           .user(UserMessage(content: [.text(TextContent(text: "If a train travels at 60 mph for 2.5 hours, how far does it go?"))])),
         ],
       )
-      let (sourceMsg, _) = try await infer(
-        endpoint: sourceEndpoint,
+      let sourceMsg = try await sourceEndpoint.infer(
         context: context,
         options: RequestOptions(reasoning: .effort("high")),
-        recording: recording,
-      )
+      ).message
       #expect(!sourceMsg.content.isEmpty)
 
       // Verify source has reasoning with signature.
@@ -159,12 +149,10 @@ private let crossDialectPairs: [(String, String, String, String)] = [
         from: sourceEndpoint.providerID,
         to: targetEndpoint,
       )
-      let (targetMsg, _) = try await infer(
-        endpoint: targetEndpoint,
+      let targetMsg = try await targetEndpoint.infer(
         context: normalizedContext,
         options: RequestOptions(reasoning: .effort("high")),
-        recording: recording,
-      )
+      ).message
       #expect(!targetMsg.content.isEmpty)
 
       // Target should receive plain-text reasoning, not signature blocks.
