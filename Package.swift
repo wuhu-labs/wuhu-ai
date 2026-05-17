@@ -5,7 +5,7 @@ let package = Package(
   name: "wuhu-ai",
   platforms: [
     .macOS(.v14),
-    .iOS(.v16),
+    .iOS(.v17),
   ],
   products: [
     .library(name: "WuhuAI", targets: ["WuhuAI"]),
@@ -13,7 +13,7 @@ let package = Package(
   dependencies: [
     .package(url: "https://github.com/wuhu-labs/wuhu-json.git", exact: "0.1.0"),
     .package(url: "https://github.com/wuhu-labs/wuhu-fetch.git", .upToNextMinor(from: "0.2.0")),
-    .package(url: "https://github.com/apple/swift-crypto.git", "3.0.0"..."5.0.0"),
+    .package(url: "https://github.com/apple/swift-crypto.git", "3.0.0" ... "5.0.0"),
   ],
   targets: [
     .target(
