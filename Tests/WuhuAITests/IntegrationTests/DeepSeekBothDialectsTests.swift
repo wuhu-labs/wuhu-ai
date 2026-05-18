@@ -26,16 +26,16 @@ private let anthropicTestCases: [(model: String, recordingName: String, kind: St
   func deepseekChatEndpoint(
     model: String, recordingName: String, kind: String,
   ) async throws {
-    try await withRecording(recordingName) { recording in
+    try await withRecording(recordingName) {
       let endpoint = makeEndpoint(providerID: "deepseek", model: model)
 
       switch kind {
       case "plain-text":
-        try await testPlainText(endpoint: endpoint, recording: recording)
+        try await testPlainText(endpoint: endpoint)
       case "tool-loop":
-        try await testToolLoop(endpoint: endpoint, recording: recording)
+        try await testToolLoop(endpoint: endpoint)
       case "reasoning":
-        try await testReasoning(endpoint: endpoint, recording: recording, isAnthropic: false)
+        try await testReasoning(endpoint: endpoint, isAnthropic: false)
       default:
         break
       }
@@ -48,16 +48,16 @@ private let anthropicTestCases: [(model: String, recordingName: String, kind: St
   func deepseekAnthropicEndpoint(
     model: String, recordingName: String, kind: String,
   ) async throws {
-    try await withRecording(recordingName) { recording in
+    try await withRecording(recordingName) {
       let endpoint = makeEndpoint(providerID: "deepseek-anthropic", model: model)
 
       switch kind {
       case "plain-text":
-        try await testPlainText(endpoint: endpoint, recording: recording)
+        try await testPlainText(endpoint: endpoint)
       case "tool-loop":
-        try await testToolLoop(endpoint: endpoint, recording: recording)
+        try await testToolLoop(endpoint: endpoint)
       case "reasoning":
-        try await testReasoning(endpoint: endpoint, recording: recording, isAnthropic: true)
+        try await testReasoning(endpoint: endpoint, isAnthropic: true)
       default:
         break
       }
@@ -66,15 +66,18 @@ private let anthropicTestCases: [(model: String, recordingName: String, kind: St
 
   // MARK: - Test Helpers
 
-  private func testPlainText(endpoint: any ModelEndpoint, recording: RecordingContext) async throws {
+  private func testPlainText(endpoint: any ModelEndpoint) async throws {
     let context = Context(messages: [
       .user(UserMessage(content: [.text(TextContent(text: "Say 'hello' in exactly three words."))])),
     ])
-    let (msg, _) = try await infer(endpoint: endpoint, context: context, options: RequestOptions(), recording: recording)
+    let msg = try await endpoint.infer(
+      context: context,
+      options: RequestOptions(),
+    ).message
     #expect(!msg.content.isEmpty)
   }
 
-  private func testToolLoop(endpoint: any ModelEndpoint, recording: RecordingContext) async throws {
+  private func testToolLoop(endpoint: any ModelEndpoint) async throws {
     let tool = Tool(
       name: "echo",
       description: "Echoes back the input text.",
@@ -96,7 +99,10 @@ private let anthropicTestCases: [(model: String, recordingName: String, kind: St
       ],
       tools: [tool],
     )
-    let (msg1, _) = try await infer(endpoint: endpoint, context: context, options: RequestOptions(), recording: recording)
+    let msg1 = try await endpoint.infer(
+      context: context,
+      options: RequestOptions(),
+    ).message
     #expect(!msg1.content.isEmpty, "Tool call response should not be empty")
 
     let toolCalls = msg1.content.compactMap { block -> ToolCall? in
@@ -108,18 +114,15 @@ private let anthropicTestCases: [(model: String, recordingName: String, kind: St
 
   private func testReasoning(
     endpoint: any ModelEndpoint,
-    recording: RecordingContext,
     isAnthropic: Bool,
   ) async throws {
     let context = Context(messages: [
       .user(UserMessage(content: [.text(TextContent(text: "Think step by step: what is 25 × 4?"))])),
     ])
-    let (msg, _) = try await infer(
-      endpoint: endpoint,
+    let msg = try await endpoint.infer(
       context: context,
       options: RequestOptions(reasoning: .effort("high")),
-      recording: recording,
-    )
+    ).message
 
     let reasoningBlocks = msg.content.compactMap { block -> ReasoningContent? in
       if case let .reasoning(r) = block { return r }

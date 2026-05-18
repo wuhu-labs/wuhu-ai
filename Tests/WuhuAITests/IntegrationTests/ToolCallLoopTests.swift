@@ -41,7 +41,7 @@ private let doubleNumberTool = Tool(
 @Suite struct ToolCallLoopTests {
   @Test(arguments: toolLoopModels)
   func toolCallDoubleNumber(entry: ModelEntry) async throws {
-    try await withRecording(entry.recordingName) { recording in
+    try await withRecording(entry.recordingName) {
       let endpoint = makeEndpoint(entry)
 
       // Turn 1: Request tool call.
@@ -51,12 +51,10 @@ private let doubleNumberTool = Tool(
         ],
         tools: [doubleNumberTool],
       )
-      let (msg1, _) = try await infer(
-        endpoint: endpoint,
+      let msg1 = try await endpoint.infer(
         context: context,
         options: RequestOptions(),
-        recording: recording,
-      )
+      ).message
 
       let toolCalls = msg1.content.compactMap { block -> ToolCall? in
         if case let .toolCall(tc) = block { return tc }
@@ -78,12 +76,10 @@ private let doubleNumberTool = Tool(
 
       // Turn 2: Follow-up.
       context.messages.append(.user(UserMessage(content: [.text(TextContent(text: "Now say the result in a sentence."))])))
-      let (msg2, _) = try await infer(
-        endpoint: endpoint,
+      let msg2 = try await endpoint.infer(
         context: context,
         options: RequestOptions(),
-        recording: recording,
-      )
+      ).message
 
       let allText = msg2.content.compactMap { block -> String? in
         if case let .text(t) = block { return t.text }

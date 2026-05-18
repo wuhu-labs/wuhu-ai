@@ -26,7 +26,7 @@ private func pandaDataURI() -> String {
 @Suite struct ImageRecognitionTests {
   @Test(arguments: imageModels)
   func identifiesPanda(entry: ModelEntry) async throws {
-    try await withRecording(entry.recordingName) { recording in
+    try await withRecording(entry.recordingName) {
       let endpoint = makeEndpoint(entry)
 
       let imageURL = URL(string: pandaDataURI())!
@@ -37,12 +37,12 @@ private func pandaDataURI() -> String {
         ])),
       ])
 
-      let (msg, metadata) = try await infer(
-        endpoint: endpoint,
+      let msgInference = try await endpoint.infer(
         context: context,
         options: RequestOptions(),
-        recording: recording,
       )
+      let msg = msgInference.message
+      let metadata = msgInference.metadata
       #expect(metadata.stopReason == .stop)
       #expect(!msg.content.isEmpty)
 

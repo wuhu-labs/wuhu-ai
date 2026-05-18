@@ -1,3 +1,4 @@
+import Dependencies
 import Foundation
 @testable import WuhuAI
 import Testing
@@ -12,7 +13,7 @@ import Testing
 /// - Otherwise: replays from recorded fixtures (fails if fixtures are missing).
 func withRecording(
   _ name: String,
-  body: (RecordingContext) async throws -> Void,
+  body: () async throws -> Void,
 ) async throws {
   let envMode = RecordingMode.fromEnvironment
 
@@ -26,7 +27,11 @@ func withRecording(
   }
 
   let ctx = RecordingContext(name: name, mode: mode)
-  try await body(ctx)
+  try await withDependencies {
+    $0.fetch = ctx.fetchClient
+  } operation: {
+    try await body()
+  }
 
   // Atomic flush: only persist recordings if the test body passed.
   if mode.isRecording {

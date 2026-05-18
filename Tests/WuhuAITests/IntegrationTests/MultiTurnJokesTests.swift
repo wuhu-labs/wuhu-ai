@@ -22,7 +22,7 @@ private let multiTurnModels: [ModelEntry] = [
 @Suite struct MultiTurnJokesTests {
   @Test(arguments: multiTurnModels)
   func plainTextMultiTurn(entry: ModelEntry) async throws {
-    try await withRecording(entry.recordingName) { recording in
+    try await withRecording(entry.recordingName) {
       let endpoint = makeEndpoint(entry)
       let options = RequestOptions(reasoning: .effort("high"))
 
@@ -30,20 +30,31 @@ private let multiTurnModels: [ModelEntry] = [
       var context = Context(messages: [
         .user(UserMessage(content: [.text(TextContent(text: "Tell me a short joke."))])),
       ])
-      let (msg1, metadata) = try await infer(endpoint: endpoint, context: context, options: options, recording: recording)
+      let msg1Inference = try await endpoint.infer(
+        context: context,
+        options: options,
+      )
+      let msg1 = msg1Inference.message
+      let metadata = msg1Inference.metadata
       #expect(metadata.stopReason == .stop)
       #expect(!msg1.content.isEmpty)
 
       // Turn 2: "Tell me a better joke."
       context.messages.append(.assistant(msg1))
       context.messages.append(.user(UserMessage(content: [.text(TextContent(text: "Tell me a better joke."))])))
-      let (msg2, _) = try await infer(endpoint: endpoint, context: context, options: options, recording: recording)
+      let msg2 = try await endpoint.infer(
+        context: context,
+        options: options,
+      ).message
       #expect(!msg2.content.isEmpty)
 
       // Turn 3: "Tell me an even better joke."
       context.messages.append(.assistant(msg2))
       context.messages.append(.user(UserMessage(content: [.text(TextContent(text: "Tell me an even better joke."))])))
-      let (msg3, _) = try await infer(endpoint: endpoint, context: context, options: options, recording: recording)
+      let msg3 = try await endpoint.infer(
+        context: context,
+        options: options,
+      ).message
       #expect(!msg3.content.isEmpty)
 
       // End-of-trajectory assertion: for reasoning models, at least one turn
