@@ -48,6 +48,17 @@ public enum ContentBlock: Hashable, Sendable, Codable {
   }
 }
 
+extension ContentBlock {
+  public static func text(_ text: String) -> ContentBlock {
+    .text(.init(text: text))
+  }
+
+  public static func inlineImage(_ data: Data, mimeType: String) -> ContentBlock {
+    let dataUri = URL(string: "data:\(mimeType);base64,\(data.base64EncodedString())")!
+    return .media(.init(url: dataUri, mimeType: mimeType))
+  }
+}
+
 // MARK: - Block Types
 
 public struct TextContent: Hashable, Sendable, Codable {
