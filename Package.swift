@@ -11,7 +11,7 @@ let package = Package(
     .library(name: "WuhuAI", targets: ["WuhuAI"]),
   ],
   dependencies: [
-    .package(url: "https://github.com/wuhu-labs/wuhu-json.git", .upToNextMinor(from: "0.1.1")),
+    .package(url: "https://github.com/wuhu-labs/wuhu-json.git", .upToNextMinor(from: "0.1.2")),
     .package(url: "https://github.com/wuhu-labs/wuhu-fetch.git", .upToNextMinor(from: "0.2.2")),
     .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.12.0"),
     .package(url: "https://github.com/apple/swift-crypto.git", "3.0.0" ... "5.0.0"),
