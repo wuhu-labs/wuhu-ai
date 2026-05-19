@@ -238,22 +238,24 @@ func parseGeminiStream(
 private func parseGeminiResponse(_ text: String) -> [[String: Any]]? {
   let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
   guard !trimmed.isEmpty else { return nil }
-  guard let data = trimmed.data(using: .utf8) else { return nil }
-  if let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
-    return array
+  guard let data = trimmed.data(using: .utf8),
+        let value = try? JSONDecoder().decode(JSONValue.self, from: data) else { return nil }
+  switch value {
+  case let .array(arr):
+    return arr.compactMap { if case let .object(obj) = $0 { return obj.mapValues { $0.toAny() } } else { return nil } }
+  case let .object(obj):
+    return [obj.mapValues { $0.toAny() }]
+  default:
+    return nil
   }
-  if let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-    return [dict]
-  }
-  return nil
 }
 
 private func parseGeminiUsage(from dict: [String: Any]) -> Usage {
-  let input = dict["promptTokenCount"] as? Int ?? 0
-  let outputTokens = dict["candidatesTokenCount"] as? Int ?? 0
-  let total = dict["totalTokenCount"] as? Int ?? (input + outputTokens)
-  let reasoning = dict["thoughtsTokenCount"] as? Int ?? 0
-  let cached = dict["cachedContentTokenCount"] as? Int ?? 0
+  let input = intValue(dict["promptTokenCount"]) ?? 0
+  let outputTokens = intValue(dict["candidatesTokenCount"]) ?? 0
+  let total = intValue(dict["totalTokenCount"]) ?? (input + outputTokens)
+  let reasoning = intValue(dict["thoughtsTokenCount"]) ?? 0
+  let cached = intValue(dict["cachedContentTokenCount"]) ?? 0
 
   return Usage(
     inputTokens: input,
@@ -312,4 +314,12 @@ private extension ReasoningContent {
     case let .encrypted(enc): return enc.summary
     }
   }
+}
+
+/// Extract an Int from a JSONDecoder-produced value (which uses Double for all numbers).
+private func intValue(_ any: Any?) -> Int? {
+  guard let any else { return nil }
+  if let i = any as? Int { return i }
+  if let d = any as? Double { return Int(exactly: d) }
+  return nil
 }

@@ -235,11 +235,11 @@ func parseResponsesStream(
           case "response.completed":
             if let response = dict["response"] as? [String: Any] {
               if let usageDict = response["usage"] as? [String: Any] {
-                let input = usageDict["input_tokens"] as? Int ?? 0
-                let outputTokens = usageDict["output_tokens"] as? Int ?? 0
-                let total = usageDict["total_tokens"] as? Int ?? (input + outputTokens)
-                let reasoning = usageDict["reasoning_tokens"] as? Int ?? 0
-                let cacheRead = usageDict["cached_input_tokens"] as? Int ?? 0
+                let input = intValue(usageDict["input_tokens"]) ?? 0
+                let outputTokens = intValue(usageDict["output_tokens"]) ?? 0
+                let total = intValue(usageDict["total_tokens"]) ?? (input + outputTokens)
+                let reasoning = intValue(usageDict["reasoning_tokens"]) ?? 0
+                let cacheRead = intValue(usageDict["cached_input_tokens"]) ?? 0
 
                 usage = Usage(
                   inputTokens: input,
@@ -307,8 +307,10 @@ func parseCodexStream(
 // MARK: - Helpers
 
 private func parseJSON(_ text: String) -> [String: Any]? {
-  guard let data = text.data(using: .utf8) else { return nil }
-  return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+  guard let data = text.data(using: .utf8),
+        let value = try? JSONDecoder().decode(JSONValue.self, from: data),
+        case let .object(obj) = value else { return nil }
+  return obj.mapValues { $0.toAny() }
 }
 
 private func mapIncompleteReason(_ reason: String) -> StopReason {
@@ -317,4 +319,12 @@ private func mapIncompleteReason(_ reason: String) -> StopReason {
   case "content_filter": return .refusal
   default: return .stop
   }
+}
+
+/// Extract an Int from a JSONDecoder-produced value (which uses Double for all numbers).
+private func intValue(_ any: Any?) -> Int? {
+  guard let any else { return nil }
+  if let i = any as? Int { return i }
+  if let d = any as? Double { return Int(exactly: d) }
+  return nil
 }

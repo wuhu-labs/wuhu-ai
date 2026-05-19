@@ -245,18 +245,20 @@ func parseChatCompletionsStream(
 // MARK: - Helpers
 
 private func parseChatJSON(_ text: String) -> [String: Any]? {
-  guard let data = text.data(using: .utf8) else { return nil }
-  return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+  guard let data = text.data(using: .utf8),
+        let value = try? JSONDecoder().decode(JSONValue.self, from: data),
+        case let .object(obj) = value else { return nil }
+  return obj.mapValues { $0.toAny() }
 }
 
 private func parseUsage(from dict: [String: Any]) -> Usage {
-  let input = dict["input_tokens"] as? Int ?? dict["prompt_tokens"] as? Int ?? 0
-  let outputTokens = dict["output_tokens"] as? Int ?? dict["completion_tokens"] as? Int ?? 0
-  let total = dict["total_tokens"] as? Int ?? (input + outputTokens)
-  let cacheRead = dict["cache_read_input_tokens"] as? Int ?? 0
-  let cacheWrite = dict["cache_creation_input_tokens"] as? Int ?? 0
-  let reasoning = dict["reasoning_tokens"] as? Int
-    ?? (dict["completion_tokens_details"] as? [String: Any])?["reasoning_tokens"] as? Int
+  let input = intValue(dict["input_tokens"]) ?? intValue(dict["prompt_tokens"]) ?? 0
+  let outputTokens = intValue(dict["output_tokens"]) ?? intValue(dict["completion_tokens"]) ?? 0
+  let total = intValue(dict["total_tokens"]) ?? (input + outputTokens)
+  let cacheRead = intValue(dict["cache_read_input_tokens"]) ?? 0
+  let cacheWrite = intValue(dict["cache_creation_input_tokens"]) ?? 0
+  let reasoning = intValue(dict["reasoning_tokens"])
+    ?? intValue((dict["completion_tokens_details"] as? [String: Any])?["reasoning_tokens"])
     ?? 0
 
   return Usage(
@@ -294,4 +296,12 @@ private extension ReasoningContent {
     case let .encrypted(enc): return enc.summary
     }
   }
+}
+
+/// Extract an Int from a JSONDecoder-produced value (which uses Double for all numbers).
+private func intValue(_ any: Any?) -> Int? {
+  guard let any else { return nil }
+  if let i = any as? Int { return i }
+  if let d = any as? Double { return Int(exactly: d) }
+  return nil
 }
