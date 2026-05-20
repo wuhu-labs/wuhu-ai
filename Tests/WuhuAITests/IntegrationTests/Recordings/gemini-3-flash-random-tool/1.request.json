@@ -1,0 +1,51 @@
+{
+  "body" : {
+    "contents" : [
+      {
+        "parts" : [
+          {
+            "text" : "You MUST call the generate_random tool now. Pass min=0 and max=100. Do not say anything else — just call the tool."
+          }
+        ],
+        "role" : "user"
+      }
+    ],
+    "generationConfig" : {
+      "thinkingConfig" : {
+        "includeThoughts" : true
+      }
+    },
+    "tools" : [
+      {
+        "functionDeclarations" : [
+          {
+            "description" : "Generate a random integer between min and max inclusive. Call this tool with explicit min and max values.",
+            "name" : "generate_random",
+            "parameters" : {
+              "properties" : {
+                "max" : {
+                  "description" : "The maximum value (inclusive). Required.",
+                  "type" : "integer"
+                },
+                "min" : {
+                  "description" : "The minimum value (inclusive). Required.",
+                  "type" : "integer"
+                }
+              },
+              "required" : [
+                "min",
+                "max"
+              ],
+              "type" : "object"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "headers" : {
+    "content-type" : "application\/json"
+  },
+  "method" : "POST",
+  "url" : "https:\/\/generativelanguage.googleapis.com\/v1beta\/models\/gemini-3-flash-preview:streamGenerateContent?alt=sse"
+}

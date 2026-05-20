@@ -33,12 +33,12 @@ func parseResponsesStream(
       do {
         for try await sseEvent in sse {
           guard let dict = parseJSON(sseEvent.data) else { continue }
-          guard let type = dict["type"] as? String else { continue }
+          guard let type = dict["type"]?.stringValue else { continue }
 
           switch type {
           case "response.output_item.added":
-            guard let item = dict["item"] as? [String: Any],
-                  let itemType = item["type"] as? String
+            guard let item = dict["item"]?.object,
+                  let itemType = item["type"]?.stringValue
             else { continue }
 
             if itemType == "message" {
@@ -50,7 +50,7 @@ func parseResponsesStream(
               currentToolCallArguments = ""
 
               // Check for phase
-              if let phaseStr = item["phase"] as? String {
+              if let phaseStr = item["phase"]?.stringValue {
                 phase = AssistantMessagePhase(rawValue: phaseStr)
               }
 
@@ -60,9 +60,9 @@ func parseResponsesStream(
               ))
 
             } else if itemType == "function_call" {
-              let callID = item["call_id"] as? String ?? UUID().uuidString
-              let itemID = item["id"] as? String
-              let name = item["name"] as? String ?? "tool"
+              let callID = item["call_id"]?.stringValue ?? UUID().uuidString
+              let itemID = item["id"]?.stringValue
+              let name = item["name"]?.stringValue ?? "tool"
 
               let fullID = itemID.map { "\(callID)|\($0)" } ?? callID
               content.append(.toolCall(ToolCall(
@@ -73,7 +73,7 @@ func parseResponsesStream(
               currentToolCallIndex = content.count - 1
               currentToolCallID = fullID
               currentToolCallName = name
-              currentToolCallArguments = item["arguments"] as? String ?? ""
+              currentToolCallArguments = item["arguments"]?.stringValue ?? ""
               currentTextIndex = nil
 
               continuation.yield(.toolCallStart(
@@ -82,13 +82,13 @@ func parseResponsesStream(
               ))
 
             } else if itemType == "reasoning" {
-              let id = item["id"] as? String ?? UUID().uuidString
-              let encrypted = item["encrypted_content"] as? String
-              let summaryAny = item["summary"] as? [Any] ?? []
+              let id = item["id"]?.stringValue ?? UUID().uuidString
+              let encrypted = item["encrypted_content"]?.stringValue
+              let summaryAny = item["summary"]?.array ?? []
               let summaryText = summaryAny.compactMap { part -> String? in
-                guard let p = part as? [String: Any],
-                      p["type"] as? String == "summary_text",
-                      let text = p["text"] as? String
+                guard let p = part.object,
+                      p["type"]?.stringValue == "summary_text",
+                      let text = p["text"]?.stringValue
                 else { return nil }
                 return text
               }.joined(separator: "\n")
@@ -123,7 +123,7 @@ func parseResponsesStream(
             }
 
           case "response.output_text.delta":
-            guard let delta = dict["delta"] as? String else { continue }
+            guard let delta = dict["delta"]?.stringValue else { continue }
             if let idx = currentTextIndex, idx < content.count,
                case var .text(part) = content[idx]
             {
@@ -144,7 +144,7 @@ func parseResponsesStream(
             ))
 
           case "response.function_call_arguments.delta":
-            guard let delta = dict["delta"] as? String else { continue }
+            guard let delta = dict["delta"]?.stringValue else { continue }
             guard currentToolCallIndex != nil else { continue }
             currentToolCallArguments += delta
             continuation.yield(.toolCallDelta(
@@ -154,13 +154,13 @@ func parseResponsesStream(
             ))
 
           case "response.function_call_arguments.done":
-            if let arguments = dict["arguments"] as? String, !arguments.isEmpty {
+            if let arguments = dict["arguments"]?.stringValue, !arguments.isEmpty {
               currentToolCallArguments = arguments
             }
 
           case "response.output_item.done":
-            guard let item = dict["item"] as? [String: Any],
-                  let itemType = item["type"] as? String
+            guard let item = dict["item"]?.object,
+                  let itemType = item["type"]?.stringValue
             else { continue }
 
             if itemType == "message" {
@@ -176,13 +176,13 @@ func parseResponsesStream(
               currentTextIndex = nil
 
               // Check for phase
-              if let phaseStr = item["phase"] as? String {
+              if let phaseStr = item["phase"]?.stringValue {
                 phase = AssistantMessagePhase(rawValue: phaseStr)
               }
 
             } else if itemType == "function_call" {
               let argsText = currentToolCallArguments.isEmpty
-                ? (item["arguments"] as? String ?? "")
+                ? (item["arguments"]?.stringValue ?? "")
                 : currentToolCallArguments
 
               if let idx = currentToolCallIndex, idx < content.count,
@@ -203,13 +203,13 @@ func parseResponsesStream(
               currentToolCallArguments = ""
 
             } else if itemType == "reasoning" {
-              let id = item["id"] as? String ?? UUID().uuidString
-              let encrypted = item["encrypted_content"] as? String
-              let summaryAny = item["summary"] as? [Any] ?? []
+              let id = item["id"]?.stringValue ?? UUID().uuidString
+              let encrypted = item["encrypted_content"]?.stringValue
+              let summaryAny = item["summary"]?.array ?? []
               let summaryText = summaryAny.compactMap { part -> String? in
-                guard let p = part as? [String: Any],
-                      p["type"] as? String == "summary_text",
-                      let text = p["text"] as? String
+                guard let p = part.object,
+                      p["type"]?.stringValue == "summary_text",
+                      let text = p["text"]?.stringValue
                 else { return nil }
                 return text
               }.joined(separator: "\n")
@@ -233,13 +233,13 @@ func parseResponsesStream(
             }
 
           case "response.completed":
-            if let response = dict["response"] as? [String: Any] {
-              if let usageDict = response["usage"] as? [String: Any] {
-                let input = intValue(usageDict["input_tokens"]) ?? 0
-                let outputTokens = intValue(usageDict["output_tokens"]) ?? 0
-                let total = intValue(usageDict["total_tokens"]) ?? (input + outputTokens)
-                let reasoning = intValue(usageDict["reasoning_tokens"]) ?? 0
-                let cacheRead = intValue(usageDict["cached_input_tokens"]) ?? 0
+            if let response = dict["response"]?.object {
+              if let usageDict = response["usage"]?.object {
+                let input = usageDict["input_tokens"]?.intValue ?? 0
+                let outputTokens = usageDict["output_tokens"]?.intValue ?? 0
+                let total = usageDict["total_tokens"]?.intValue ?? (input + outputTokens)
+                let reasoning = usageDict["reasoning_tokens"]?.intValue ?? 0
+                let cacheRead = usageDict["cached_input_tokens"]?.intValue ?? 0
 
                 usage = Usage(
                   inputTokens: input,
@@ -250,11 +250,11 @@ func parseResponsesStream(
                   totalTokens: total,
                 )
               }
-              completedStatus = response["status"] as? String
+              completedStatus = response["status"]?.stringValue
 
               // Use incomplete_details.reason for stop reason
-              if let incomplete = response["incomplete_details"] as? [String: Any],
-                 let reason = incomplete["reason"] as? String
+              if let incomplete = response["incomplete_details"]?.object,
+                 let reason = incomplete["reason"]?.stringValue
               {
                 stopReason = mapIncompleteReason(reason)
               } else if completedStatus == "completed" {
@@ -264,7 +264,7 @@ func parseResponsesStream(
 
           case "response.failed", "response.cancelled":
             // These are stream-level failures — throw them.
-            let status = (dict["response"] as? [String: Any])?["status"] as? String ?? type
+            let status = (dict["response"]?.object)?["status"]?.stringValue ?? type
             throw ResponsesStreamError.failed(status: status)
 
           default:
@@ -306,11 +306,11 @@ func parseCodexStream(
 
 // MARK: - Helpers
 
-private func parseJSON(_ text: String) -> [String: Any]? {
+private func parseJSON(_ text: String) -> [String: JSONValue]? {
   guard let data = text.data(using: .utf8),
         let value = try? JSONDecoder().decode(JSONValue.self, from: data),
         case let .object(obj) = value else { return nil }
-  return obj.mapValues { $0.toAny() }
+  return obj
 }
 
 private func mapIncompleteReason(_ reason: String) -> StopReason {
@@ -321,10 +321,4 @@ private func mapIncompleteReason(_ reason: String) -> StopReason {
   }
 }
 
-/// Extract an Int from a JSONDecoder-produced value (which uses Double for all numbers).
-private func intValue(_ any: Any?) -> Int? {
-  guard let any else { return nil }
-  if let i = any as? Int { return i }
-  if let d = any as? Double { return Int(exactly: d) }
-  return nil
-}
+

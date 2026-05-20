@@ -12,10 +12,10 @@
         "tool_calls" : [
           {
             "function" : {
-              "arguments" : "{}",
+              "arguments" : "{\"number\":21}",
               "name" : "double_number"
             },
-            "id" : "call_00_p14wIuuH3PDPUoPbtvcf3835",
+            "id" : "call_00_HMlJlabetREigm5bJArZ7212",
             "type" : "function"
           }
         ]
@@ -23,7 +23,7 @@
       {
         "content" : "42",
         "role" : "tool",
-        "tool_call_id" : "call_00_p14wIuuH3PDPUoPbtvcf3835"
+        "tool_call_id" : "call_00_HMlJlabetREigm5bJArZ7212"
       },
       {
         "content" : "Now say the result in a sentence.",

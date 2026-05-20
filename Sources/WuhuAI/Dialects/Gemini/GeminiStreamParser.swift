@@ -34,15 +34,15 @@ func parseGeminiStream(
           guard let dicts = parseGeminiResponse(sseEvent.data) else { continue }
 
           for dict in dicts {
-            if let usageMetadata = dict["usageMetadata"] as? [String: Any] {
+            if let usageMetadata = dict["usageMetadata"]?.object {
               usage = parseGeminiUsage(from: usageMetadata)
             }
 
-            guard let candidates = dict["candidates"] as? [[String: Any]],
+            guard let candidates = dict["candidates"]?.array?.compactMap({ $0.object }),
                   let candidate = candidates.first
             else { continue }
 
-            if let finishReason = candidate["finishReason"] as? String {
+            if let finishReason = candidate["finishReason"]?.stringValue {
               stopReason = mapGeminiFinishReason(finishReason)
               applyGeminiFinishReason(
                 &content,
@@ -53,14 +53,14 @@ func parseGeminiStream(
               )
             }
 
-            guard let candidateContent = candidate["content"] as? [String: Any],
-                  let parts = candidateContent["parts"] as? [[String: Any]]
+            guard let candidateContent = candidate["content"]?.object,
+                  let parts = candidateContent["parts"]?.array?.compactMap({ $0.object })
             else { continue }
 
             for part in parts {
-              if let thought = part["thought"] as? Bool, thought {
-                let thoughtText = part["text"] as? String
-                let thoughtSignature = part["thoughtSignature"] as? String
+              if let thought = part["thought"]?.boolValue, thought {
+                let thoughtText = part["text"]?.stringValue
+                let thoughtSignature = part["thoughtSignature"]?.stringValue
 
                 if let sig = thoughtSignature {
                   content.append(.reasoning(.encrypted(EncryptedReasoningContent(
@@ -112,8 +112,8 @@ func parseGeminiStream(
                   currentReasoningIndex = nil
                 }
 
-              } else if let text = part["text"] as? String {
-                let thoughtSignature = part["thoughtSignature"] as? String
+              } else if let text = part["text"]?.stringValue {
+                let thoughtSignature = part["thoughtSignature"]?.stringValue
 
                 if let sig = thoughtSignature {
                   content.append(.reasoning(.encrypted(EncryptedReasoningContent(
@@ -150,13 +150,13 @@ func parseGeminiStream(
                   partial: partial(),
                 ))
 
-              } else if let functionCall = part["functionCall"] as? [String: Any] {
-                let name = functionCall["name"] as? String ?? "tool"
-                let args = functionCall["args"] as? [String: Any] ?? [:]
+              } else if let functionCall = part["functionCall"]?.object {
+                let name = functionCall["name"]?.stringValue ?? "tool"
+                let args = functionCall["args"]?.object ?? [:]
 
-                let fcID = functionCall["id"] as? String ?? UUID().uuidString
+                let fcID = functionCall["id"]?.stringValue ?? UUID().uuidString
 
-                let argsJSON = (try? JSONValue.fromAny(args)) ?? .object([:])
+                let argsJSON = JSONValue.object(args)
                 content.append(.toolCall(ToolCall(
                   id: fcID,
                   name: name,
@@ -166,7 +166,7 @@ func parseGeminiStream(
                 currentTextIndex = nil
                 currentReasoningIndex = nil
 
-                if let sig = part["thoughtSignature"] as? String {
+                if let sig = part["thoughtSignature"]?.stringValue {
                   let toolCallBlock = content.removeLast()
                   content.append(.reasoning(.encrypted(EncryptedReasoningContent(
                     providerID: providerID,
@@ -235,27 +235,27 @@ func parseGeminiStream(
 
 // MARK: - Helpers
 
-private func parseGeminiResponse(_ text: String) -> [[String: Any]]? {
+private func parseGeminiResponse(_ text: String) -> [[String: JSONValue]]? {
   let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
   guard !trimmed.isEmpty else { return nil }
   guard let data = trimmed.data(using: .utf8),
         let value = try? JSONDecoder().decode(JSONValue.self, from: data) else { return nil }
   switch value {
   case let .array(arr):
-    return arr.compactMap { if case let .object(obj) = $0 { return obj.mapValues { $0.toAny() } } else { return nil } }
+    return arr.compactMap { $0.object }
   case let .object(obj):
-    return [obj.mapValues { $0.toAny() }]
+    return [obj]
   default:
     return nil
   }
 }
 
-private func parseGeminiUsage(from dict: [String: Any]) -> Usage {
-  let input = intValue(dict["promptTokenCount"]) ?? 0
-  let outputTokens = intValue(dict["candidatesTokenCount"]) ?? 0
-  let total = intValue(dict["totalTokenCount"]) ?? (input + outputTokens)
-  let reasoning = intValue(dict["thoughtsTokenCount"]) ?? 0
-  let cached = intValue(dict["cachedContentTokenCount"]) ?? 0
+private func parseGeminiUsage(from dict: [String: JSONValue]) -> Usage {
+  let input = dict["promptTokenCount"]?.intValue ?? 0
+  let outputTokens = dict["candidatesTokenCount"]?.intValue ?? 0
+  let total = dict["totalTokenCount"]?.intValue ?? (input + outputTokens)
+  let reasoning = dict["thoughtsTokenCount"]?.intValue ?? 0
+  let cached = dict["cachedContentTokenCount"]?.intValue ?? 0
 
   return Usage(
     inputTokens: input,
@@ -316,10 +316,4 @@ private extension ReasoningContent {
   }
 }
 
-/// Extract an Int from a JSONDecoder-produced value (which uses Double for all numbers).
-private func intValue(_ any: Any?) -> Int? {
-  guard let any else { return nil }
-  if let i = any as? Int { return i }
-  if let d = any as? Double { return Int(exactly: d) }
-  return nil
-}
+
