@@ -7,7 +7,7 @@
       },
       {
         "content" : null,
-        "reasoning_content" : "The user wants me to double 21 using the double_number tool.",
+        "reasoning_content" : "The user wants me to double the number 21 using the double_number tool.",
         "role" : "assistant",
         "tool_calls" : [
           {
@@ -15,7 +15,7 @@
               "arguments" : "{}",
               "name" : "double_number"
             },
-            "id" : "call_00_w7I6iS5wkgs7hsVV7aeF9661",
+            "id" : "call_00_p14wIuuH3PDPUoPbtvcf3835",
             "type" : "function"
           }
         ]
@@ -23,7 +23,7 @@
       {
         "content" : "42",
         "role" : "tool",
-        "tool_call_id" : "call_00_w7I6iS5wkgs7hsVV7aeF9661"
+        "tool_call_id" : "call_00_p14wIuuH3PDPUoPbtvcf3835"
       },
       {
         "content" : "Now say the result in a sentence.",
@@ -59,7 +59,6 @@
   },
   "headers" : {
     "accept" : "text\/event-stream",
-    "authorization" : "HMAC:SHA256:c6e0fc3c33e78b29b6c2ee67f3a0ed5cd5a0d2f0a0762d1acdbb61babf446b0e",
     "content-type" : "application\/json"
   },
   "method" : "POST",

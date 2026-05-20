@@ -1,17 +1,11 @@
-#if canImport(CryptoKit)
-  import CryptoKit
-#else
-  import Crypto
-#endif
 import Fetch
 import FetchURLSession
 import Foundation
 import HTTPTypes
 
-// MARK: - HMAC Sanitization
+// MARK: - Header Sanitization
 
-private let hmacSecret = SymmetricKey(data: Data("jiuziai-recording-hmac-secret-v1".utf8))
-
+/// Header names that contain credentials and must be excluded from recording fixtures.
 private let sensitiveHeaderNames: Set<String> = [
   "authorization",
   "x-api-key",
@@ -19,16 +13,16 @@ private let sensitiveHeaderNames: Set<String> = [
   "chatgpt-account-id",
 ]
 
-func sanitizeHeaderValue(headerName: String, value: String) -> String {
-  let lowercased = headerName.lowercased()
-  guard sensitiveHeaderNames.contains(lowercased) else { return value }
-  let message = "\(lowercased):\(value)"
-  let signature = HMAC<SHA256>.authenticationCode(
-    for: Data(message.utf8),
-    using: hmacSecret,
-  )
-  let hex = signature.map { String(format: "%02x", $0) }.joined()
-  return "HMAC:SHA256:\(hex)"
+/// Returns headers with sensitive ones removed. No HMAC — just strip.
+/// Different API keys between recordings won't break replay tests.
+private func sanitizeHeaders(_ headers: HTTPFields) -> [String: String] {
+  var dict: [String: String] = [:]
+  for field in headers {
+    let name = field.name.rawName
+    guard !sensitiveHeaderNames.contains(name.lowercased()) else { continue }
+    dict[name] = field.value
+  }
+  return dict
 }
 
 // MARK: - Recording Directory
@@ -225,7 +219,6 @@ func replayResponse(
 
   // Build the current request dict with sanitized headers.
   let currentHeaders = sanitizeHeaders(request.headers)
-    .filter { !sensitiveHeaderNames.contains($0.key.lowercased()) }
   let currentDict: [String: Any] = [
     "url": request.url.absoluteString,
     "method": request.method.rawValue,
@@ -257,20 +250,6 @@ func replayResponse(
     headers: HTTPFields(),
     body: .bytes(Array(sseBytes), contentType: "text/event-stream"),
   )
-}
-
-// MARK: - Header Sanitization
-
-private func sanitizeHeaders(_ headers: HTTPFields) -> [String: String] {
-  var dict: [String: String] = [:]
-  for field in headers {
-    let sanitizedValue = sanitizeHeaderValue(
-      headerName: field.name.rawName,
-      value: field.value,
-    )
-    dict[field.name.rawName] = sanitizedValue
-  }
-  return dict
 }
 
 // MARK: - Serialization
