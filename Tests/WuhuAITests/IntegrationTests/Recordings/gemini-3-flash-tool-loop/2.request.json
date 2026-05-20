@@ -18,7 +18,7 @@
               },
               "name" : "double_number"
             },
-            "thoughtSignature" : "Eq4BCqsBAQw51sd0bIpeor1eCXlC9YG+k9KyfSCI\/zg3mb9dBITRNriVYDkjNPM9nRMIjPjgHBQ1Bol1RkVuwbxHUOJyAxxtIP96XX70bgUsWFrESfTwfSCPwAvgdumPKGqTbmKw54r92ASBhaRKExNTDoYUecqoekiiDQnl9mBqvolfK6vVNVp4T4vIpPRMG6uGzx8WjvZWAWIwZghO5m+ixnN5YkGmaWUTdCHCzOzP"
+            "thoughtSignature" : "EtQBCtEBAQw51sdfUPzmIM1W9kgh7gf\/FmcgkHxsia+x3fkPUWuAhkyXYHQue\/+tkrl3opKSjn4IHuo8vd5Icjdg43tKfGMn9EE4iAe2FJuZNOXbWGpEBdL\/jnFYf1q+xACO7LnTJtv8bTU638EFuVL7IeBVYNB8jP2XmGAEaIFQiEyIKeO3X1QTxZ\/9t62EF+GauxmhQVya+hpDEhXikOKK4aVoUii\/2XFFsq4AiGVoEOz2LChr7IiKgflyomyPE+z3tXykUbOZfL\/Sa80ccRFrLd3Sf6g="
           },
           {
             "text" : ""
@@ -32,7 +32,7 @@
             "functionResponse" : {
               "name" : "double_number",
               "response" : {
-                "result" : "42"
+                "result" : 42
               }
             }
           }
@@ -78,7 +78,7 @@
   },
   "headers" : {
     "content-type" : "application\/json",
-    "x-goog-api-key" : "AIzaSyBElujk0RHl82RzEbqzFY2Gsn3K4ny9dug"
+    "x-goog-api-key" : "HMAC:SHA256:66a3227d11af02d55e982f8d50ac1594404e3487d7c76827f40ca3fd0bd3334d"
   },
   "method" : "POST",
   "url" : "https:\/\/generativelanguage.googleapis.com\/v1beta\/models\/gemini-3-flash-preview:streamGenerateContent?alt=sse"

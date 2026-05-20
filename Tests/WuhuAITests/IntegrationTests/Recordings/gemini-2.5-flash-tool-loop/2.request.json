@@ -12,7 +12,7 @@
       {
         "parts" : [
           {
-            "text" : "**Calculating the Target Number**\n\nI've decided to use the `double_number` tool to address the doubling request. It seems straightforward: the tool accepts an integer input, which in this case is 21. I'll need to call the tool with `number=21` to get the result.\n\n\n",
+            "text" : "**Calculating the Target Number**\n\nI've determined I need to double the number 21. It's a straightforward task, and I'll achieve it by using the `double_number` tool. This tool accepts a single integer argument, and in this case, I'll provide `number=21` to get the doubled value.\n\n\n",
             "thought" : true
           },
           {
@@ -22,7 +22,7 @@
               },
               "name" : "double_number"
             },
-            "thoughtSignature" : "CiQBDDnWx9C1aPZD9F3YdpxlgLXSuYaoA6LMa4gHLSpmdLtKhiUKXgEMOdbHnL801qDRHQGkylbVylmiG5iD0NmKVIO9ItzXueIn5bAlR6mfwz3GyLiUyJY+y9e09eoc\/qXo1pvHGQv6eJRHWvLvIs4dIESJKyr14n5k4JKOmLSI5SyCPkIKnAEBDDnWx+7YDYdW8Ggnf5u075s5eX4YehVYRbe1ZxfO4THdk0CnQg7xBu\/W42b8X4Qrs9xkucatY0P5ke\/TFlmghD6vLi1p0BC4p9SdgSjlFxyt7\/JmtIGRUfK59W\/I8Ep7s5zzcEzSDzSXuvoUvpN0DoUbCBn2jXpgLbTkCQh1FyZNfVbsCCoG6t\/Kl\/imhmaPVHKXLaoLxaGG7bw="
+            "thoughtSignature" : "CiQBDDnWx+tI+\/hSh0RKvpifPFPd65+GanDsEsPhlEUhsW0RFWoKWAEMOdbHxyEhm3JPn2IhnJGF03XJgXvkqdd4T35vLdFPrXL\/qNA1KiZA3mjKSHVKgSktRZ7+u4WCdTpcpN1LpDVOo5pWTiIEgCLbYtEU6QyOFb\/GCluMczMKqAEBDDnWxyh5HTIlemCE3rsHYzWQvUkES+5S9OCmA6DJa2YKrCxPX8xe+lHzlMGvhGxTlIqc7Ik9kCQ\/mfmmOBm5mgBcFeXA2cMf\/n+lwloDPrYQaBVydZKNn+ft5XAzGnacaQZ9kitRNMoGkNRjzdg6SaxBddzMT0jIxSe3GAnLgJlTz82\/IqOzS2neYh5KEYLkB5xyO0FtWjbKnaK+vr\/S1IFESh1DVc4="
           }
         ],
         "role" : "model"
@@ -33,7 +33,7 @@
             "functionResponse" : {
               "name" : "double_number",
               "response" : {
-                "result" : "42"
+                "result" : 42
               }
             }
           }
@@ -79,7 +79,7 @@
   },
   "headers" : {
     "content-type" : "application\/json",
-    "x-goog-api-key" : "AIzaSyBElujk0RHl82RzEbqzFY2Gsn3K4ny9dug"
+    "x-goog-api-key" : "HMAC:SHA256:66a3227d11af02d55e982f8d50ac1594404e3487d7c76827f40ca3fd0bd3334d"
   },
   "method" : "POST",
   "url" : "https:\/\/generativelanguage.googleapis.com\/v1beta\/models\/gemini-2.5-flash:streamGenerateContent?alt=sse"

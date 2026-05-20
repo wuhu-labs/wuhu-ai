@@ -222,9 +222,15 @@ private func buildContents(context: Context) -> [JSONValue] {
           return nil
         }.joined(separator: "\n")
 
-        // Try to parse JSON, fallback to string
+        // Try to parse JSON, fallback to string.
+        // Gemini requires response to be an object (Struct), so wrap
+        // bare primitives (numbers, strings, etc.) in {"result": ...}.
         if let parsed = JSONValue.parse(text) {
-          response["response"] = parsed
+          if case .object = parsed {
+            response["response"] = parsed
+          } else {
+            response["response"] = .object(["result": parsed])
+          }
         } else {
           response["response"] = .object(["result": .string(text)])
         }
