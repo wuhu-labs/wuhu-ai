@@ -27,6 +27,11 @@ When you add a new LLM provider dialect:
 
 ## Running tests
 
+Recordings are **reproducibility aids**, not a substitute for assertions.
+Every integration test must include `#expect`/`#require` on the actual
+behavior (tool call arguments, response content, etc.), not just rely on
+the recording comparison to catch regressions.
+
 - Unit tests: `swift test --filter UnitTests`
 - Integration tests (replay mode, no network): `swift test --filter IntegrationTests`
 - Integration tests (record mode): `RECORDING=1 swift test --filter IntegrationTests`
