@@ -39,9 +39,9 @@ func parseAnthropicStream(
             if let msg = dict["message"] as? [String: Any],
                let usage = msg["usage"] as? [String: Any]
             {
-              inputTokens = (usage["input_tokens"] as? Int ?? 0)
-                + (usage["cache_creation_input_tokens"] as? Int ?? 0)
-                + (usage["cache_read_input_tokens"] as? Int ?? 0)
+              inputTokens = (intValue(usage["input_tokens"]) ?? 0)
+                + (intValue(usage["cache_creation_input_tokens"]) ?? 0)
+                + (intValue(usage["cache_read_input_tokens"]) ?? 0)
             }
 
           case "content_block_start":
@@ -243,7 +243,7 @@ func parseAnthropicStream(
               stopReason = mapAnthropicStopReason(stopReasonStr)
             }
             if let usage = dict["usage"] as? [String: Any] {
-              outputTokens = usage["output_tokens"] as? Int ?? outputTokens
+              outputTokens = intValue(usage["output_tokens"]) ?? outputTokens
             }
 
           case "message_stop":
@@ -293,8 +293,10 @@ func parseAnthropicStream(
 // MARK: - Helpers
 
 private func parseJSON(_ text: String) -> [String: Any]? {
-  guard let data = text.data(using: .utf8) else { return nil }
-  return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+  guard let data = text.data(using: .utf8),
+        let value = try? JSONDecoder().decode(JSONValue.self, from: data),
+        case let .object(obj) = value else { return nil }
+  return obj.mapValues { $0.toAny() }
 }
 
 private func nonEmptyString(_ value: String?) -> String? {
@@ -318,4 +320,12 @@ private extension ReasoningContent {
     case let .encrypted(enc): return enc.summary
     }
   }
+}
+
+/// Extract an Int from a JSONDecoder-produced value (which uses Double for all numbers).
+private func intValue(_ any: Any?) -> Int? {
+  guard let any else { return nil }
+  if let i = any as? Int { return i }
+  if let d = any as? Double { return Int(exactly: d) }
+  return nil
 }

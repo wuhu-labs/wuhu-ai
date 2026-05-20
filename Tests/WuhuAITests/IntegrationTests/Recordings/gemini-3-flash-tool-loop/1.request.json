@@ -39,8 +39,7 @@
     ]
   },
   "headers" : {
-    "content-type" : "application\/json",
-    "x-goog-api-key" : "AIzaSyBElujk0RHl82RzEbqzFY2Gsn3K4ny9dug"
+    "content-type" : "application\/json"
   },
   "method" : "POST",
   "url" : "https:\/\/generativelanguage.googleapis.com\/v1beta\/models\/gemini-3-flash-preview:streamGenerateContent?alt=sse"

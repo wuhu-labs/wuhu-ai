@@ -18,7 +18,7 @@
               },
               "name" : "double_number"
             },
-            "thoughtSignature" : "Eq4BCqsBAQw51sd0bIpeor1eCXlC9YG+k9KyfSCI\/zg3mb9dBITRNriVYDkjNPM9nRMIjPjgHBQ1Bol1RkVuwbxHUOJyAxxtIP96XX70bgUsWFrESfTwfSCPwAvgdumPKGqTbmKw54r92ASBhaRKExNTDoYUecqoekiiDQnl9mBqvolfK6vVNVp4T4vIpPRMG6uGzx8WjvZWAWIwZghO5m+ixnN5YkGmaWUTdCHCzOzP"
+            "thoughtSignature" : "EtMBCtABAQw51sfdMqvh+fthCW1YQ0qAP124gVd9jDekBrusAFzVaLoVCI2Hlry\/UnqI+DF0ADVWJ5FMSHv1MJHpKnCAl3OZ4JnVF86k8y2mFdHjF2FXyh2GlC83cEa2aR6y+gU9h\/SwGHnDHj52XUoGGQlyZYu97aeA7xb86Ps7oVKq4D6kpFpDEN\/mKfR+Kxr\/kslUmGti6Q8tzh\/mR9SxwRaJK2rXkJwUGEkfd\/eqU39EtK7kNTVYlYKpX+OmiEYlPAjQx4Z1bfiXtnW5rUOn5CU9pA=="
           },
           {
             "text" : ""
@@ -32,7 +32,7 @@
             "functionResponse" : {
               "name" : "double_number",
               "response" : {
-                "result" : "42"
+                "result" : 42
               }
             }
           }
@@ -77,8 +77,7 @@
     ]
   },
   "headers" : {
-    "content-type" : "application\/json",
-    "x-goog-api-key" : "AIzaSyBElujk0RHl82RzEbqzFY2Gsn3K4ny9dug"
+    "content-type" : "application\/json"
   },
   "method" : "POST",
   "url" : "https:\/\/generativelanguage.googleapis.com\/v1beta\/models\/gemini-3-flash-preview:streamGenerateContent?alt=sse"

@@ -1,33 +1,28 @@
-#if canImport(CryptoKit)
-  import CryptoKit
-#else
-  import Crypto
-#endif
 import Fetch
 import FetchURLSession
 import Foundation
 import HTTPTypes
 
-// MARK: - HMAC Sanitization
+// MARK: - Header Sanitization
 
-private let hmacSecret = SymmetricKey(data: Data("jiuziai-recording-hmac-secret-v1".utf8))
-
+/// Header names that contain credentials and must be excluded from recording fixtures.
 private let sensitiveHeaderNames: Set<String> = [
   "authorization",
   "x-api-key",
+  "x-goog-api-key",
   "chatgpt-account-id",
 ]
 
-func sanitizeHeaderValue(headerName: String, value: String) -> String {
-  let lowercased = headerName.lowercased()
-  guard sensitiveHeaderNames.contains(lowercased) else { return value }
-  let message = "\(lowercased):\(value)"
-  let signature = HMAC<SHA256>.authenticationCode(
-    for: Data(message.utf8),
-    using: hmacSecret,
-  )
-  let hex = signature.map { String(format: "%02x", $0) }.joined()
-  return "HMAC:SHA256:\(hex)"
+/// Returns headers with sensitive ones removed. No HMAC — just strip.
+/// Different API keys between recordings won't break replay tests.
+private func sanitizeHeaders(_ headers: HTTPFields) -> [String: String] {
+  var dict: [String: String] = [:]
+  for field in headers {
+    let name = field.name.rawName
+    guard !sensitiveHeaderNames.contains(name.lowercased()) else { continue }
+    dict[name] = field.value
+  }
+  return dict
 }
 
 // MARK: - Recording Directory
@@ -206,26 +201,43 @@ func replayResponse(
   } else {
     currentBodyJSON = NSNull()
   }
-  let currentBodySerialized = try JSONSerialization.data(
-    withJSONObject: currentBodyJSON, options: [.sortedKeys, .prettyPrinted],
-  )
 
-  // Load recorded body from fixture.
-  let recordedJSON = try JSONSerialization.jsonObject(with: Data(contentsOf: reqFile))
-  guard let recordedDict = recordedJSON as? [String: Any],
-        let recordedBody = recordedDict["body"]
+  // Load recorded fixture.
+  let recordedData = try Data(contentsOf: reqFile)
+  let recordedJSON = try JSONSerialization.jsonObject(with: recordedData)
+  guard var recordedDict = recordedJSON as? [String: Any],
+        let _ = recordedDict["body"]
   else {
     throw IntegrationTestError.noRecordingsFound(recordDir.lastPathComponent)
   }
-  let recordedBodySerialized = try JSONSerialization.data(
-    withJSONObject: recordedBody, options: [.sortedKeys, .prettyPrinted],
+
+  // Strip sensitive headers from the recorded fixture before comparison.
+  if var recordedHeaders = recordedDict["headers"] as? [String: String] {
+    recordedHeaders = recordedHeaders.filter { !sensitiveHeaderNames.contains($0.key.lowercased()) }
+    recordedDict["headers"] = recordedHeaders
+  }
+
+  // Build the current request dict with sanitized headers.
+  let currentHeaders = sanitizeHeaders(request.headers)
+  let currentDict: [String: Any] = [
+    "url": request.url.absoluteString,
+    "method": request.method.rawValue,
+    "headers": currentHeaders,
+    "body": currentBodyJSON,
+  ]
+
+  // Serialize both with sorted keys for stable comparison.
+  let recordedSerialized = try JSONSerialization.data(
+    withJSONObject: recordedDict, options: [.sortedKeys, .prettyPrinted],
+  )
+  let currentSerialized = try JSONSerialization.data(
+    withJSONObject: currentDict, options: [.sortedKeys, .prettyPrinted],
   )
 
-  // Compare only the body — headers differ due to HMAC with different API keys.
-  guard recordedBodySerialized == currentBodySerialized else {
-    let recorded = String(data: recordedBodySerialized, encoding: .utf8) ?? "<binary>"
-    let current = String(data: currentBodySerialized, encoding: .utf8) ?? "<binary>"
-    throw IntegrationTestError.requestBodyMismatch(expected: recorded, actual: current)
+  guard recordedSerialized == currentSerialized else {
+    let recorded = String(data: recordedSerialized, encoding: .utf8) ?? "<binary>"
+    let current = String(data: currentSerialized, encoding: .utf8) ?? "<binary>"
+    throw IntegrationTestError.requestMismatch(expected: recorded, actual: current)
   }
 
   guard FileManager.default.fileExists(atPath: sseFile.path) else {
@@ -238,20 +250,6 @@ func replayResponse(
     headers: HTTPFields(),
     body: .bytes(Array(sseBytes), contentType: "text/event-stream"),
   )
-}
-
-// MARK: - Header Sanitization
-
-private func sanitizeHeaders(_ headers: HTTPFields) -> [String: String] {
-  var dict: [String: String] = [:]
-  for field in headers {
-    let sanitizedValue = sanitizeHeaderValue(
-      headerName: field.name.rawName,
-      value: field.value,
-    )
-    dict[field.name.rawName] = sanitizedValue
-  }
-  return dict
 }
 
 // MARK: - Serialization
