@@ -15,6 +15,7 @@ private let hmacSecret = SymmetricKey(data: Data("jiuziai-recording-hmac-secret-
 private let sensitiveHeaderNames: Set<String> = [
   "authorization",
   "x-api-key",
+  "x-goog-api-key",
   "chatgpt-account-id",
 ]
 
