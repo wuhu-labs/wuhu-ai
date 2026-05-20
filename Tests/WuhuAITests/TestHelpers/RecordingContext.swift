@@ -207,25 +207,43 @@ func replayResponse(
   } else {
     currentBodyJSON = NSNull()
   }
-  let currentBodySerialized = try JSONSerialization.data(
-    withJSONObject: currentBodyJSON, options: [.sortedKeys, .prettyPrinted],
-  )
 
-  // Load recorded body from fixture.
-  let recordedJSON = try JSONSerialization.jsonObject(with: Data(contentsOf: reqFile))
-  guard let recordedDict = recordedJSON as? [String: Any],
-        let recordedBody = recordedDict["body"]
+  // Load recorded fixture.
+  let recordedData = try Data(contentsOf: reqFile)
+  let recordedJSON = try JSONSerialization.jsonObject(with: recordedData)
+  guard var recordedDict = recordedJSON as? [String: Any],
+        let _ = recordedDict["body"]
   else {
     throw IntegrationTestError.noRecordingsFound(recordDir.lastPathComponent)
   }
-  let recordedBodySerialized = try JSONSerialization.data(
-    withJSONObject: recordedBody, options: [.sortedKeys, .prettyPrinted],
+
+  // Strip sensitive headers from the recorded fixture before comparison.
+  if var recordedHeaders = recordedDict["headers"] as? [String: String] {
+    recordedHeaders = recordedHeaders.filter { !sensitiveHeaderNames.contains($0.key.lowercased()) }
+    recordedDict["headers"] = recordedHeaders
+  }
+
+  // Build the current request dict with sanitized headers.
+  let currentHeaders = sanitizeHeaders(request.headers)
+    .filter { !sensitiveHeaderNames.contains($0.key.lowercased()) }
+  let currentDict: [String: Any] = [
+    "url": request.url.absoluteString,
+    "method": request.method.rawValue,
+    "headers": currentHeaders,
+    "body": currentBodyJSON,
+  ]
+
+  // Serialize both with sorted keys for stable comparison.
+  let recordedSerialized = try JSONSerialization.data(
+    withJSONObject: recordedDict, options: [.sortedKeys, .prettyPrinted],
+  )
+  let currentSerialized = try JSONSerialization.data(
+    withJSONObject: currentDict, options: [.sortedKeys, .prettyPrinted],
   )
 
-  // Compare only the body — headers differ due to HMAC with different API keys.
-  guard recordedBodySerialized == currentBodySerialized else {
-    let recorded = String(data: recordedBodySerialized, encoding: .utf8) ?? "<binary>"
-    let current = String(data: currentBodySerialized, encoding: .utf8) ?? "<binary>"
+  guard recordedSerialized == currentSerialized else {
+    let recorded = String(data: recordedSerialized, encoding: .utf8) ?? "<binary>"
+    let current = String(data: currentSerialized, encoding: .utf8) ?? "<binary>"
     throw IntegrationTestError.requestBodyMismatch(expected: recorded, actual: current)
   }
 
