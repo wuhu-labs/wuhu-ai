@@ -21,7 +21,7 @@ Recordings live under `Tests/IntegrationTests/Recordings/<name>/`, with
 Recordings compare the **sanitized request body** (headers HMAC'd, nothing
 provider-specific leaked). If you change request-building logic (new fields,
 different defaults, different wire format), the recorded body no longer matches
-and tests fail with `requestBodyMismatch`.
+and tests fail with `requestMismatch`.
 
 ### How to update recordings
 

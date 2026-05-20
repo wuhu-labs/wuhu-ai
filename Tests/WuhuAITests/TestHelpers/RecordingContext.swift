@@ -244,7 +244,7 @@ func replayResponse(
   guard recordedSerialized == currentSerialized else {
     let recorded = String(data: recordedSerialized, encoding: .utf8) ?? "<binary>"
     let current = String(data: currentSerialized, encoding: .utf8) ?? "<binary>"
-    throw IntegrationTestError.requestBodyMismatch(expected: recorded, actual: current)
+    throw IntegrationTestError.requestMismatch(expected: recorded, actual: current)
   }
 
   guard FileManager.default.fileExists(atPath: sseFile.path) else {

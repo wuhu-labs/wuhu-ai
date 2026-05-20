@@ -56,7 +56,7 @@ enum RecordingMode: Sendable {
 enum IntegrationTestError: Error, CustomStringConvertible {
   case missingAPIKey(String)
   case noRecordingsFound(String)
-  case requestBodyMismatch(expected: String, actual: String)
+  case requestMismatch(expected: String, actual: String)
   case unexpectedStatus(Int, String)
 
   var description: String {
@@ -68,7 +68,7 @@ enum IntegrationTestError: Error, CustomStringConvertible {
       No recordings found for "\(name)".
       Run with RECORDING=1 to create them: RECORDING=1 swift test --package-path Packages/Jiuzi
       """
-    case let .requestBodyMismatch(expected, actual):
+    case let .requestMismatch(expected, actual):
       return "Request body mismatch.\nExpected: \(expected)\nActual: \(actual)"
     case let .unexpectedStatus(code, body):
       return "Unexpected HTTP status \(code). Body: \(body.prefix(500))"
