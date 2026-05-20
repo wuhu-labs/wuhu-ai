@@ -167,6 +167,14 @@ func parseChatCompletionsStream(
                       partial: partial(),
                     ))
                   }
+                } else if let args = arguments, currentToolCallBuffer != nil {
+                  // Delta for ongoing tool call — some providers omit id/name in subsequent chunks.
+                  currentToolCallBuffer?.arguments += args
+                  continuation.yield(.toolCallDelta(
+                    contentIndex: currentToolCallIndex!,
+                    delta: args,
+                    partial: partial(),
+                  ))
                 }
               }
             }

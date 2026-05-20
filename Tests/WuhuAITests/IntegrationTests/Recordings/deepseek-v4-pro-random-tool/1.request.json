@@ -1,0 +1,47 @@
+{
+  "body" : {
+    "messages" : [
+      {
+        "content" : "You MUST call the generate_random tool now. Pass min=0 and max=100. Do not say anything else — just call the tool.",
+        "role" : "user"
+      }
+    ],
+    "model" : "deepseek-v4-pro",
+    "stream" : true,
+    "thinking" : {
+      "type" : "enabled"
+    },
+    "tools" : [
+      {
+        "function" : {
+          "description" : "Generate a random integer between min and max inclusive. Call this tool with explicit min and max values.",
+          "name" : "generate_random",
+          "parameters" : {
+            "properties" : {
+              "max" : {
+                "description" : "The maximum value (inclusive). Required.",
+                "type" : "integer"
+              },
+              "min" : {
+                "description" : "The minimum value (inclusive). Required.",
+                "type" : "integer"
+              }
+            },
+            "required" : [
+              "min",
+              "max"
+            ],
+            "type" : "object"
+          }
+        },
+        "type" : "function"
+      }
+    ]
+  },
+  "headers" : {
+    "accept" : "text\/event-stream",
+    "content-type" : "application\/json"
+  },
+  "method" : "POST",
+  "url" : "https:\/\/api.deepseek.com\/v1\/chat\/completions"
+}
