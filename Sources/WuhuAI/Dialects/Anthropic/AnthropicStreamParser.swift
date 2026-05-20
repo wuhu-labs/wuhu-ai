@@ -36,17 +36,17 @@ func parseAnthropicStream(
 
           switch event {
           case "message_start":
-            if let msg = dict["message"] as? [String: Any],
-               let usage = msg["usage"] as? [String: Any]
+            if let msg = dict["message"]?.object,
+               let usage = msg["usage"]?.object
             {
-              inputTokens = (intValue(usage["input_tokens"]) ?? 0)
-                + (intValue(usage["cache_creation_input_tokens"]) ?? 0)
-                + (intValue(usage["cache_read_input_tokens"]) ?? 0)
+              inputTokens = (usage["input_tokens"]?.intValue ?? 0)
+                + (usage["cache_creation_input_tokens"]?.intValue ?? 0)
+                + (usage["cache_read_input_tokens"]?.intValue ?? 0)
             }
 
           case "content_block_start":
-            guard let block = dict["content_block"] as? [String: Any],
-                  let type = block["type"] as? String
+            guard let block = dict["content_block"]?.object,
+                  let type = block["type"]?.stringValue
             else { continue }
 
             switch type {
@@ -62,10 +62,9 @@ func parseAnthropicStream(
               ))
 
             case "tool_use":
-              let id = block["id"] as? String ?? UUID().uuidString
-              let name = block["name"] as? String ?? "tool"
-              let inputAny = block["input"] as? [String: Any] ?? [:]
-              let args = (try? JSONValue.fromAny(inputAny)) ?? .object([:])
+              let id = block["id"]?.stringValue ?? UUID().uuidString
+              let name = block["name"]?.stringValue ?? "tool"
+              let args: JSONValue = if case let .object(obj) = block["input"] { .object(obj) } else { .object([:]) }
               content.append(.toolCall(ToolCall(
                 id: id,
                 name: name,
@@ -81,8 +80,8 @@ func parseAnthropicStream(
               ))
 
             case "thinking":
-              let thinkingText = nonEmptyString(block["thinking"] as? String)
-              let signature = nonEmptyString(block["signature"] as? String) ?? ""
+              let thinkingText = nonEmptyString(block["thinking"]?.stringValue)
+              let signature = nonEmptyString(block["signature"]?.stringValue) ?? ""
               content.append(.reasoning(.encrypted(EncryptedReasoningContent(
                 providerID: providerID,
                 model: model,
@@ -99,7 +98,7 @@ func parseAnthropicStream(
               ))
 
             case "redacted_thinking":
-              let data = block["data"] as? String ?? ""
+              let data = block["data"]?.stringValue ?? ""
               content.append(.reasoning(.encrypted(EncryptedReasoningContent(
                 providerID: providerID,
                 model: model,
@@ -121,13 +120,13 @@ func parseAnthropicStream(
             }
 
           case "content_block_delta":
-            guard let delta = dict["delta"] as? [String: Any],
-                  let deltaType = delta["type"] as? String
+            guard let delta = dict["delta"]?.object,
+                  let deltaType = delta["type"]?.stringValue
             else { continue }
 
             switch deltaType {
             case "text_delta":
-              if let text = delta["text"] as? String {
+              if let text = delta["text"]?.stringValue {
                 if let idx = currentTextIndex, idx < content.count,
                    case var .text(part) = content[idx]
                 {
@@ -149,7 +148,7 @@ func parseAnthropicStream(
               }
 
             case "input_json_delta":
-              if let partialJSON = delta["partial_json"] as? String {
+              if let partialJSON = delta["partial_json"]?.stringValue {
                 currentToolCallArgumentsBuffer += partialJSON
                 if let idx = currentToolCallIndex {
                   continuation.yield(.toolCallDelta(
@@ -161,7 +160,7 @@ func parseAnthropicStream(
               }
 
             case "thinking_delta":
-              if let thinking = delta["thinking"] as? String {
+              if let thinking = delta["thinking"]?.stringValue {
                 if let idx = currentReasoningIndex, idx < content.count,
                    case let .reasoning(reasoningContent) = content[idx],
                    case var .encrypted(enc) = reasoningContent
@@ -177,7 +176,7 @@ func parseAnthropicStream(
               }
 
             case "signature_delta":
-              if let signature = delta["signature"] as? String {
+              if let signature = delta["signature"]?.stringValue {
                 if let idx = currentReasoningIndex, idx < content.count,
                    case let .reasoning(reasoningContent) = content[idx],
                    case var .encrypted(enc) = reasoningContent
@@ -237,13 +236,13 @@ func parseAnthropicStream(
             currentToolCallArgumentsBuffer = ""
 
           case "message_delta":
-            if let delta = dict["delta"] as? [String: Any],
-               let stopReasonStr = delta["stop_reason"] as? String
+            if let delta = dict["delta"]?.object,
+               let stopReasonStr = delta["stop_reason"]?.stringValue
             {
               stopReason = mapAnthropicStopReason(stopReasonStr)
             }
-            if let usage = dict["usage"] as? [String: Any] {
-              outputTokens = intValue(usage["output_tokens"]) ?? outputTokens
+            if let usage = dict["usage"]?.object {
+              outputTokens = usage["output_tokens"]?.intValue ?? outputTokens
             }
 
           case "message_stop":
@@ -292,11 +291,11 @@ func parseAnthropicStream(
 
 // MARK: - Helpers
 
-private func parseJSON(_ text: String) -> [String: Any]? {
+private func parseJSON(_ text: String) -> [String: JSONValue]? {
   guard let data = text.data(using: .utf8),
         let value = try? JSONDecoder().decode(JSONValue.self, from: data),
         case let .object(obj) = value else { return nil }
-  return obj.mapValues { $0.toAny() }
+  return obj
 }
 
 private func nonEmptyString(_ value: String?) -> String? {
@@ -322,10 +321,4 @@ private extension ReasoningContent {
   }
 }
 
-/// Extract an Int from a JSONDecoder-produced value (which uses Double for all numbers).
-private func intValue(_ any: Any?) -> Int? {
-  guard let any else { return nil }
-  if let i = any as? Int { return i }
-  if let d = any as? Double { return Int(exactly: d) }
-  return nil
-}
+

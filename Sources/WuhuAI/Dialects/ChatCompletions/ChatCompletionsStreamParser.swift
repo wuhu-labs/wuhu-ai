@@ -36,20 +36,20 @@ func parseChatCompletionsStream(
             break
           }
 
-          guard let choices = dict["choices"] as? [[String: Any]],
+          guard let choices = dict["choices"]?.array?.compactMap({ $0.object }),
                 let choice = choices.first
           else { continue }
 
-          let finishReason = choice["finish_reason"] as? String
+          let finishReason = choice["finish_reason"]?.stringValue
 
           // Check for usage in the choice-level or top-level
-          if let usageDict = dict["usage"] as? [String: Any] {
+          if let usageDict = dict["usage"]?.object {
             usage = parseUsage(from: usageDict)
           }
 
-          if let delta = choice["delta"] as? [String: Any] {
+          if let delta = choice["delta"]?.object {
             // Text delta
-            if let text = delta["content"] as? String, !text.isEmpty {
+            if let text = delta["content"]?.stringValue, !text.isEmpty {
               if let idx = currentTextIndex, idx < content.count,
                  case var .text(part) = content[idx]
               {
@@ -73,7 +73,7 @@ func parseChatCompletionsStream(
             }
 
             // Reasoning delta
-            if let reasoningText = delta["reasoning_content"] as? String, !reasoningText.isEmpty {
+            if let reasoningText = delta["reasoning_content"]?.stringValue, !reasoningText.isEmpty {
               if let idx = currentReasoningIndex, idx < content.count,
                  case let .reasoning(reasoningContent) = content[idx],
                  case let .unencrypted(existing) = reasoningContent
@@ -97,10 +97,10 @@ func parseChatCompletionsStream(
             }
 
             // Reasoning details (MiniMax)
-            if let reasoningDetails = delta["reasoning_details"] as? [[String: Any]] {
+            if let reasoningDetails = delta["reasoning_details"]?.array?.compactMap({ $0.object }) {
               for detail in reasoningDetails {
-                if let text = detail["text"] as? String {
-                  let signature = detail["signature"] as? String
+                if let text = detail["text"]?.stringValue {
+                  let signature = detail["signature"]?.stringValue
                   if let idx = currentReasoningIndex, idx < content.count,
                      case let .reasoning(reasoningContent) = content[idx],
                      case var .encrypted(enc) = reasoningContent
@@ -133,12 +133,12 @@ func parseChatCompletionsStream(
             }
 
             // Tool call delta
-            if let toolCalls = delta["tool_calls"] as? [[String: Any]] {
+            if let toolCalls = delta["tool_calls"]?.array?.compactMap({ $0.object }) {
               for tc in toolCalls {
-                let id = tc["id"] as? String
-                let function = tc["function"] as? [String: Any]
-                let name = function?["name"] as? String
-                let arguments = function?["arguments"] as? String
+                let id = tc["id"]?.stringValue
+                let function = tc["function"]?.object
+                let name = function?["name"]?.stringValue
+                let arguments = function?["arguments"]?.stringValue
 
                 // Use index to track tool calls
                 if let idx = id ?? name {
@@ -244,21 +244,21 @@ func parseChatCompletionsStream(
 
 // MARK: - Helpers
 
-private func parseChatJSON(_ text: String) -> [String: Any]? {
+private func parseChatJSON(_ text: String) -> [String: JSONValue]? {
   guard let data = text.data(using: .utf8),
         let value = try? JSONDecoder().decode(JSONValue.self, from: data),
         case let .object(obj) = value else { return nil }
-  return obj.mapValues { $0.toAny() }
+  return obj
 }
 
-private func parseUsage(from dict: [String: Any]) -> Usage {
-  let input = intValue(dict["input_tokens"]) ?? intValue(dict["prompt_tokens"]) ?? 0
-  let outputTokens = intValue(dict["output_tokens"]) ?? intValue(dict["completion_tokens"]) ?? 0
-  let total = intValue(dict["total_tokens"]) ?? (input + outputTokens)
-  let cacheRead = intValue(dict["cache_read_input_tokens"]) ?? 0
-  let cacheWrite = intValue(dict["cache_creation_input_tokens"]) ?? 0
-  let reasoning = intValue(dict["reasoning_tokens"])
-    ?? intValue((dict["completion_tokens_details"] as? [String: Any])?["reasoning_tokens"])
+private func parseUsage(from dict: [String: JSONValue]) -> Usage {
+  let input = dict["input_tokens"]?.intValue ?? dict["prompt_tokens"]?.intValue ?? 0
+  let outputTokens = dict["output_tokens"]?.intValue ?? dict["completion_tokens"]?.intValue ?? 0
+  let total = dict["total_tokens"]?.intValue ?? (input + outputTokens)
+  let cacheRead = dict["cache_read_input_tokens"]?.intValue ?? 0
+  let cacheWrite = dict["cache_creation_input_tokens"]?.intValue ?? 0
+  let reasoning = dict["reasoning_tokens"]?.intValue
+    ?? dict["completion_tokens_details"]?.object?["reasoning_tokens"]?.intValue
     ?? 0
 
   return Usage(
@@ -298,10 +298,4 @@ private extension ReasoningContent {
   }
 }
 
-/// Extract an Int from a JSONDecoder-produced value (which uses Double for all numbers).
-private func intValue(_ any: Any?) -> Int? {
-  guard let any else { return nil }
-  if let i = any as? Int { return i }
-  if let d = any as? Double { return Int(exactly: d) }
-  return nil
-}
+
